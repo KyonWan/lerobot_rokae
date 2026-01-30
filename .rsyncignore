@@ -1,0 +1,26 @@
+# hidden
+.*
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# build
+build/
+dist/
+
+# logs
+*.log
+_rokae_log_/
+
+# DO NOT SYNC VENV (platform-specific)
+venv/
+.venv/
+env/
+
+# datasets
+datasets/
+
+# outputs
+# outputs/

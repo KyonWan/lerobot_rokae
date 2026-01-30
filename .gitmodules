@@ -1,0 +1,6 @@
+[submodule "lerobot"]
+	path = lerobot
+	url = git@gitlab.i.rokae.com:embodied_ai_group/lerobot.git
+[submodule "rokae_python_wrapper"]
+	path = rokae_python_wrapper
+	url = git@gitlab.i.rokae.com:embodied_ai_group/rokae_python_wrapper.git

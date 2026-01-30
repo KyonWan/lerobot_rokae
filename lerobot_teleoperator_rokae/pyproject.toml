@@ -1,0 +1,13 @@
+[project]
+name = "lerobot_teleoperator_rokae"
+version = "0.1.0"
+description = "LeRobot plugin for Rokae robots"
+requires-python = ">=3.9"
+
+dependencies = [
+    "lerobot",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
