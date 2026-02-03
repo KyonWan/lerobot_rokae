@@ -22,10 +22,6 @@ class CallbackMode(str, Enum):
 @RobotConfig.register_subclass("rokae_robot")
 @dataclass
 class RokaeRobotConfig(RobotConfig):
-    # ip to connet the robot
-    host_ip: str = "192.168.21.1"
-    robot_ip: str = "192.168.21.10"
-    
     # basic params
     joint_num: int = 6
     # control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDNACE

@@ -10,12 +10,6 @@ from ..rokae_single_arm.config_rokae_robot import ControlMode, CallbackMode
 @RobotConfig.register_subclass("bi_rokae_robot")
 @dataclass
 class BiRokaeRobotConfig(RobotConfig):
-    # IP addresses for left and right arms
-    left_host_ip: str = "192.168.21.1"
-    left_robot_ip: str = "192.168.21.10"
-    right_host_ip: str = "192.168.21.1"
-    right_robot_ip: str = "192.168.21.11"
-    
     # Server ports for HTTP API (each arm needs its own server on different port)
     left_server_port: int = 5000
     right_server_port: int = 5001

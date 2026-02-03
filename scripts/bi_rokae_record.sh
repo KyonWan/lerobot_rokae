@@ -19,10 +19,6 @@ width: 640, height: 480, fps: 60, use_depth: false}}"
 
 python -m lerobot.scripts.lerobot_record \
     --robot.type=bi_rokae_robot \
-    --robot.left_host_ip=192.168.71.230 \
-    --robot.left_robot_ip=192.168.71.161 \
-    --robot.right_host_ip=192.168.71.230 \
-    --robot.right_robot_ip=192.168.71.160 \
     --robot.left_server_port=5000 \
     --robot.right_server_port=5001 \
     --robot.left_joint_num=7 \
@@ -32,7 +28,7 @@ python -m lerobot.scripts.lerobot_record \
     --robot.right_control_mode=cartesian_impedance \
     --robot.right_callback_mode=cart_vel \
     --teleop.type=bi_spacemouse \
-    --teleop.left_device_index=5 \
+    --teleop.left_device_index=0 \
     --teleop.right_device_index=1 \
     --dataset.repo_id=test_2025/bi_rokae_record \
     --dataset.root="/home/rokae/Projects/datasets/double_arm_pickup1" \

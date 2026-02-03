@@ -19,8 +19,6 @@
 - 创建了 `BiRokaeRobot` 类（`bi_rokae_robot`）
 - 包含两个独立的Rokae单臂机器人实例
 - 配置文件：`BiRokaeRobotConfig`
-  - `left_host_ip`, `left_robot_ip`: 左臂IP配置
-  - `right_host_ip`, `right_robot_ip`: 右臂IP配置
   - `left_server_port`, `right_server_port`: 左右臂服务器端口（默认5000和5001）
   - `left_joint_num`, `right_joint_num`: 左右臂关节数
   - `left_control_mode`, `right_control_mode`: 左右臂控制模式
@@ -65,8 +63,6 @@ chmod +x rokae_python_wrapper/scripts/start_rokae_right_server.sh
 **左臂服务器：**
 ```bash
 python -m rokae_python_wrapper.rokae_server \
-    --robot_ip=192.168.71.161 \
-    --host_ip=192.168.71.230 \
     --port=5000 \
     --joint_num=7 \
     --end_effector=linkerhand_v10
@@ -75,25 +71,18 @@ python -m rokae_python_wrapper.rokae_server \
 **右臂服务器：**
 ```bash
 python -m rokae_python_wrapper.rokae_server \
-    --robot_ip=192.168.71.160 \
-    --host_ip=192.168.71.230 \
     --port=5001 \
     --joint_num=7 \
     --end_effector=linkerhand_v10
 ```
 
 **命令行参数说明：**
-- `--robot_ip`: 机器人IP地址（必须不同）
-- `--host_ip`: 主机IP地址（通常相同）
 - `--port`: Flask服务器端口（必须不同，默认5000和5001）
 - `--joint_num`: 关节数量（6或7，根据实际机器人配置）
 - `--end_effector`: 末端执行器类型（`linkerhand_v10` 或 `dahuan_gripper`）
 
 **注意：** 
 - 确保两个服务器的端口不同（左臂5000，右臂5001）
-- 确保两个服务器的机器人IP不同（左臂192.168.71.160，右臂192.168.71.161）
-- 主机IP地址为192.168.71.200
-- 根据实际网络配置修改IP地址
 
 ### 2. 连接SpaceMouse设备
 确保两个SpaceMouse设备已正确连接到计算机。系统会自动检测设备索引0和1。
@@ -118,10 +107,6 @@ chmod +x scripts/bi_rokae_record.sh
 ```bash
 python -m lerobot.scripts.lerobot_record \
     --robot.type=bi_rokae_robot \
-    --robot.left_host_ip=192.168.71.230 \
-    --robot.left_robot_ip=192.168.71.161 \
-    --robot.right_host_ip=192.168.71.230 \
-    --robot.right_robot_ip=192.168.71.160 \
     --robot.left_server_port=5000 \
     --robot.right_server_port=5001 \
     --robot.left_joint_num=7 \
@@ -170,14 +155,13 @@ python -m lerobot.scripts.lerobot_record \
 
 1. **服务器端口**: 确保两个Rokae服务器运行在不同的端口上（默认5000和5001）
 2. **SpaceMouse设备**: 确保两个SpaceMouse设备正确连接，系统会自动分配设备索引
-3. **IP地址配置**: 根据实际网络配置修改左右臂的IP地址
-4. **控制模式**: 确保左右臂的控制模式和回调模式配置正确
+3. **控制模式**: 确保左右臂的控制模式和回调模式配置正确
 5. **pyspacemouse多设备支持**: 如果遇到多设备问题，可能需要修改 `pyspacemouse` 库或使用其他方法区分设备
 
 ## 故障排除
 
 1. **无法连接SpaceMouse**: 检查设备是否正确连接，尝试交换 `left_device_index` 和 `right_device_index`
-2. **无法连接机器人**: 检查服务器是否在正确的端口运行，检查IP地址配置
+2. **无法连接机器人**: 检查服务器是否在正确的端口运行
 3. **动作不响应**: 检查控制模式和回调模式配置是否正确
 
 ## 文件结构

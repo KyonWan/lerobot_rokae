@@ -29,20 +29,3 @@ class GenerateJointPosCmd(ProcessorStep):
         for i in range(self.joint_num): # todo
             features[PipelineFeatureType.ACTION][f"joint_pos{i}"] = float
         return features
-
-# @ProcessorStepRegistry.register("generate_joint_pos_cmd")
-# class GenerateJointPosCmd:
-#     joint_num: int = 6
-
-#     def __call__(
-#         self,
-#         data: tuple[dict, dict],  # (act, obs)
-#     ) -> dict:
-#         act, obs = data
-
-#         act = act.copy()
-#         for i in range(self.joint_num):
-#             act[f"joint_pos{i}"] = obs[f"joint_pos{i}"]
-
-#         return act
-

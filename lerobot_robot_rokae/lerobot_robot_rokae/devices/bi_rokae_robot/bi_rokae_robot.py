@@ -29,8 +29,6 @@ class BiRokaeRobot(Robot):
         # Create left arm config
         left_arm_config = RokaeRobotConfig(
             id=f"{config.id}_left" if config.id else None,
-            host_ip=config.left_host_ip,
-            robot_ip=config.left_robot_ip,
             joint_num=config.left_joint_num,
             control_mode=config.left_control_mode,
             callback_mode=config.left_callback_mode,
@@ -41,8 +39,6 @@ class BiRokaeRobot(Robot):
         # Create right arm config
         right_arm_config = RokaeRobotConfig(
             id=f"{config.id}_right" if config.id else None,
-            host_ip=config.right_host_ip,
-            robot_ip=config.right_robot_ip,
             joint_num=config.right_joint_num,
             control_mode=config.right_control_mode,
             callback_mode=config.right_callback_mode,

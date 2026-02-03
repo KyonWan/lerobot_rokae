@@ -84,7 +84,7 @@ class RokaeRobot(Robot):
         # Read arm position
         start = time.perf_counter()
         state = self.client.get_state(["joint_pos_cmd", "gripper_pos"])
-        obs_dict = {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"]}
+        obs_dict = {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]}
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
 
@@ -118,7 +118,7 @@ class RokaeRobot(Robot):
 
         state = self.client.get_state(["joint_pos_cmd", "gripper_pos"])  # todo: use next time's joint position
 
-        return {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"]} # todo
+        return {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]} # todo
 
     def disconnect(self):
         if not self.is_connected:

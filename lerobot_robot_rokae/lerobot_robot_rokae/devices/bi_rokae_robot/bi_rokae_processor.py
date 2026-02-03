@@ -38,7 +38,7 @@ class ExtractBiCartVelAndGripper(RobotActionProcessorStep):
         left_trans_vel_world = np.array([action[f"left_cart_vel{i}"] for i in range(3)])
         left_rot_vel_world = np.array([action[f"left_cart_vel{i+3}"] for i in range(3)])
 
-        # 转换为基坐标系中的速度（法兰相对于基）
+        # 转换为基坐标系中的速度（末端相对于基）
         left_trans_vel = self.R_world_in_base_left @ left_trans_vel_world
         left_rot_vel = self.R_world_in_base_left @ left_rot_vel_world
 
@@ -50,7 +50,7 @@ class ExtractBiCartVelAndGripper(RobotActionProcessorStep):
         right_trans_vel_world = np.array([action[f"right_cart_vel{i}"] for i in range(3)])
         right_rot_vel_world = np.array([action[f"right_cart_vel{i+3}"] for i in range(3)])
 
-        # 转换为基坐标系中的速度（法兰相对于基）
+        # 转换为基坐标系中的速度（末端相对于基）
         right_trans_vel = self.R_world_in_base_right @ right_trans_vel_world
         right_rot_vel = self.R_world_in_base_right @ right_rot_vel_world
 
