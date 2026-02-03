@@ -1,4 +1,5 @@
 import logging
+import platform
 import time
 from functools import cached_property
 from typing import Any
@@ -8,9 +9,25 @@ from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 from .config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode
 from rokae_python_wrapper.rokae_client import RokaeClient
+from rokae_python_wrapper.rokae_zmq_client import RokaeZmqClient
 import numpy as np
 
 logger = logging.getLogger(__name__)
+# # 设置 logger 级别为 DEBUG 以显示性能日志
+# # 注意：如果根 logger 的 handler 级别是 INFO，需要确保 handler 也接受 DEBUG
+# logger.setLevel(logging.DEBUG)
+# # 如果没有 handler 或 handler 级别太高，添加一个 DEBUG 级别的 handler
+# if not logger.handlers:
+#     handler = logging.StreamHandler()
+#     handler.setLevel(logging.DEBUG)
+#     formatter = logging.Formatter("%(levelname)s %(name)s: %(message)s")
+#     handler.setFormatter(formatter)
+#     logger.addHandler(handler)
+# else:
+#     # 确保现有 handler 也接受 DEBUG 级别
+#     for handler in logger.handlers:
+#         if handler.level > logging.DEBUG:
+#             handler.setLevel(logging.DEBUG)
 
 
 class RokaeRobot(Robot):
@@ -22,10 +39,32 @@ class RokaeRobot(Robot):
         self.cfg = config
         self.joint_num = config.joint_num
         self.cameras = make_cameras_from_configs(config.cameras)
-        # Support configurable port for multiple arms
-        port = getattr(config, 'server_port', 5000)
-        base_url = f"http://127.0.0.1:{port}"
-        self.client = RokaeClient(base_url=base_url)
+        self.gripper_pos_cur = None
+
+        # 根据配置选择通信协议
+        protocol = getattr(config, "protocol", "zmq")
+        if protocol == "zmq":
+            # 使用 ZMQ 客户端（更快）
+            # 根据 server_port 推断 ZMQ 端口：5000 -> 5555, 5001 -> 5556
+            port = getattr(config, "server_port", 5000)
+            zmq_port = 5555 if port == 5000 else (5556 if port == 5001 else 5555)
+            # 根据操作系统生成正确的地址
+            if hasattr(config, "zmq_address") and config.zmq_address:
+                zmq_address = config.zmq_address
+            else:
+                # 自动生成地址：Windows 使用 TCP，Unix/Linux 使用 IPC
+                if platform.system() == "Windows":
+                    zmq_address = f"tcp://127.0.0.1:{zmq_port}"
+                else:
+                    zmq_address = f"ipc:///tmp/rokae_server_{zmq_port}"
+            self.client = RokaeZmqClient(address=zmq_address)
+            logger.info(f"Using ZMQ client: {zmq_address}")
+        else:
+            # 使用 HTTP 客户端
+            port = getattr(config, "server_port", 5000)
+            base_url = f"http://127.0.0.1:{port}"
+            self.client = RokaeClient(base_url=base_url)
+            logger.info(f"Using HTTP client: {base_url}")
 
     @property
     def _tele_robot_ft(self) -> dict[str, type]:
@@ -78,8 +117,6 @@ class RokaeRobot(Robot):
         pass
 
     def get_observation(self) -> dict[str, Any]:
-        if not self.is_connected:
-            raise DeviceNotConnectedError(f"{self} is not connected.")
 
         # Read arm position
         start = time.perf_counter()
@@ -98,8 +135,6 @@ class RokaeRobot(Robot):
         return obs_dict
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
-        if not self.is_connected:
-            raise DeviceNotConnectedError(f"{self} is not connected.")
 
         if self.cfg.callback_mode == CallbackMode.JOINT_POS:
             robot_action = np.array([action[f"joint_pos{i}"] for i in range(self.joint_num)])
@@ -111,10 +146,11 @@ class RokaeRobot(Robot):
             robot_action = np.array([action[f"cart_vel{i}"] for i in range(6)]) # todo
             self.client.set_target_cart_vel(robot_action)
 
-        if action["gripper_pos"] == 0:
+        if action["gripper_pos"] == 0 and self.gripper_pos_cur != 0:
             self.client.close_gripper()
-        elif action["gripper_pos"] == 1:
+        elif action["gripper_pos"] == 1 and self.gripper_pos_cur != 1:
             self.client.open_gripper()
+        self.gripper_pos_cur = action["gripper_pos"]
 
         state = self.client.get_state(["joint_pos_cmd", "gripper_pos"])  # todo: use next time's joint position
 

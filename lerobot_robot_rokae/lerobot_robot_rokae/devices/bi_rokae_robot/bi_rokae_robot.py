@@ -1,4 +1,5 @@
 import logging
+import platform
 import time
 from functools import cached_property
 from typing import Any
@@ -26,6 +27,21 @@ class BiRokaeRobot(Robot):
         super().__init__(config)
         self.cfg = config
 
+        # 自动生成 ZMQ 地址（如果未指定）
+        left_zmq_address = config.left_zmq_address
+        if left_zmq_address is None:
+            if platform.system() == "Windows":
+                left_zmq_address = f"tcp://127.0.0.1:5555"
+            else:
+                left_zmq_address = f"ipc:///tmp/rokae_server_5555"
+
+        right_zmq_address = config.right_zmq_address
+        if right_zmq_address is None:
+            if platform.system() == "Windows":
+                right_zmq_address = f"tcp://127.0.0.1:5556"
+            else:
+                right_zmq_address = f"ipc:///tmp/rokae_server_5556"
+
         # Create left arm config
         left_arm_config = RokaeRobotConfig(
             id=f"{config.id}_left" if config.id else None,
@@ -33,6 +49,8 @@ class BiRokaeRobot(Robot):
             control_mode=config.left_control_mode,
             callback_mode=config.left_callback_mode,
             server_port=config.left_server_port,
+            protocol=config.protocol,
+            zmq_address=left_zmq_address,
             cameras={},  # Cameras are shared at the bimanual level
         )
 
@@ -43,6 +61,8 @@ class BiRokaeRobot(Robot):
             control_mode=config.right_control_mode,
             callback_mode=config.right_callback_mode,
             server_port=config.right_server_port,
+            protocol=config.protocol,
+            zmq_address=right_zmq_address,
             cameras={},  # Cameras are shared at the bimanual level
         )
 
@@ -106,9 +126,6 @@ class BiRokaeRobot(Robot):
         self.right_arm.configure()
 
     def get_observation(self) -> dict[str, Any]:
-        if not self.is_connected:
-            raise DeviceNotConnectedError(f"{self} is not connected.")
-
         obs_dict = {}
 
         # Get left arm observation and add "left_" prefix
@@ -139,8 +156,6 @@ class BiRokaeRobot(Robot):
         return obs_dict
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
-        if not self.is_connected:
-            raise DeviceNotConnectedError(f"{self} is not connected.")
 
         # Remove "left_" prefix
         left_action = {

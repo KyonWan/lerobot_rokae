@@ -33,5 +33,16 @@ class RokaeRobotConfig(RobotConfig):
     # Server port for HTTP API (default 5000)
     server_port: int = 5000
 
+    # Communication protocol: "http" or "zmq" (default "zmq")
+    # ZMQ is much faster (1-5ms vs 50-90ms) but requires ZMQ server to be running
+    protocol: str = "zmq"
+
+    # ZMQ server address (only used if protocol="zmq")
+    # TCP mode: "tcp://127.0.0.1:5555" (works on all platforms)
+    # IPC mode (faster, Unix/Linux only): "ipc:///tmp/rokae_server_5555"
+    # Note: Windows does not support IPC, will automatically use TCP
+    # Default: Auto-generated based on OS (TCP on Windows, IPC on Unix/Linux)
+    zmq_address: str | None = None
+
     # cameras
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
