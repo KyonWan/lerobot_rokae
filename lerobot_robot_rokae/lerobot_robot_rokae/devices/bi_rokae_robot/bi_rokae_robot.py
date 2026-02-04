@@ -196,3 +196,14 @@ class BiRokaeRobot(Robot):
         """重置左右臂到拖拽位姿"""
         self.left_arm.reset_position()
         self.right_arm.reset_position()
+    
+    def set_gripper_states(self, left_gripper_pos: int, right_gripper_pos: int) -> None:
+        """
+        直接设置左右夹爪状态，不影响机械臂动作。
+        
+        Args:
+            left_gripper_pos: 左夹爪状态，0=关闭，1=打开
+            right_gripper_pos: 右夹爪状态，0=关闭，1=打开
+        """
+        self.left_arm.set_gripper_state(left_gripper_pos)
+        self.right_arm.set_gripper_state(right_gripper_pos)

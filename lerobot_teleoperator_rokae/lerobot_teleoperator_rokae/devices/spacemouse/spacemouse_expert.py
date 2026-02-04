@@ -13,14 +13,14 @@ class SpaceMouseExpert:
     def __init__(self, device_index: int):
         """
         Args:
-            device_index: DeviceNumber for pyspacemouse (0, 1, ...)
+            device_index: device_index for pyspacemouse (0, 1, ...)
         """
         self.device_index = device_index
 
         # ⚠️ 关键：保存 device 对象
         self.device = pyspacemouse.open(
-            DeviceNumber=device_index,
-            set_nonblocking_loop=True,
+            device_index=device_index,
+            nonblocking=True,
         )
 
         if self.device is None:

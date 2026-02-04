@@ -26,12 +26,6 @@ class ExtractBiCartVelAndGripper(RobotActionProcessorStep):
         R_base_in_world_right = R.from_euler("X", 90, degrees=True)
         self.R_world_in_base_right = R_base_in_world_right.inv().as_matrix()
 
-        # Gripper切换状态跟踪：记录上一次gripper_pos值和当前gripper状态
-        self.left_gripper_pos_prev = 0  # 上一次左gripper_pos值
-        self.right_gripper_pos_prev = 0  # 上一次右gripper_pos值
-        self.left_gripper_state = 0  # 当前左gripper状态（0=close, 1=open）
-        self.right_gripper_state = 0  # 当前右gripper状态（0=close, 1=open）
-
     def action(self, action: RobotAction) -> RobotAction:
         # Process left arm
         # 原始速度是世界相对于基的速度（在世界坐标系中表示）
@@ -57,33 +51,10 @@ class ExtractBiCartVelAndGripper(RobotActionProcessorStep):
         right_trans_vel *= self.TRANS_MAX_VEL
         right_rot_vel *= self.ROT_MAX_VEL
 
-        # Extract gripper states - 切换式开关逻辑
-        # action中已经有left_gripper_pos和right_gripper_pos（单个值）
-        # 检测gripper_pos从0变为1的上升沿，切换gripper状态
-        left_gripper_pos_curr = action.get("left_gripper_pos", 0)
-        right_gripper_pos_curr = action.get("right_gripper_pos", 0)
-
-        # 标准化为0或1
-        left_gripper_pos_curr = 1 if left_gripper_pos_curr else 0
-        right_gripper_pos_curr = 1 if right_gripper_pos_curr else 0
-
-        # 检测左gripper_pos上升沿（从0变为1）：切换gripper状态
-        if left_gripper_pos_curr == 1 and self.left_gripper_pos_prev == 0:
-            # gripper_pos从未按下变为按下，切换gripper状态
-            self.left_gripper_state = 1 - self.left_gripper_state
-
-        # 检测右gripper_pos上升沿（从0变为1）：切换gripper状态
-        if right_gripper_pos_curr == 1 and self.right_gripper_pos_prev == 0:
-            # gripper_pos从未按下变为按下，切换gripper状态
-            self.right_gripper_state = 1 - self.right_gripper_state
-
-        # 更新上一次gripper_pos状态
-        self.left_gripper_pos_prev = left_gripper_pos_curr
-        self.right_gripper_pos_prev = right_gripper_pos_curr
-
-        # 使用切换后的gripper状态
-        left_gripper = self.left_gripper_state
-        right_gripper = self.right_gripper_state
+        # Extract gripper states - 直接使用teleop processor已经转换好的gripper状态
+        # gripper_pos已经是夹爪开关状态（0=close, 1=open），不需要再次转换
+        left_gripper = action.get("left_gripper_pos")
+        right_gripper = action.get("right_gripper_pos")
 
         return {
             **{f"left_cart_vel{i}": float(left_trans_vel[i]) for i in range(3)},

@@ -135,15 +135,38 @@ class RokaeRobot(Robot):
         return obs_dict
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
-
+        # ZMQ 客户端使用一次 RPC 完成 set_target + gripper + get_state，减少往返延迟
+        if hasattr(self.client, "send_action_and_get_state"):
+            if self.cfg.callback_mode == CallbackMode.JOINT_POS:
+                robot_action = np.array([action[f"joint_pos{i}"] for i in range(self.joint_num)])
+                action_type = "joint_pos"
+            elif self.cfg.callback_mode == CallbackMode.CART_POS:
+                robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)])
+                action_type = "cart_pos"
+            else:  # CART_VEL
+                robot_action = np.array([action[f"cart_vel{i}"] for i in range(6)])
+                action_type = "cart_vel"
+            gripper_pos = float(action["gripper_pos"])
+            state = self.client.send_action_and_get_state(
+                action_type=action_type,
+                action_value=robot_action,
+                gripper_pos=gripper_pos,
+                quantities=["joint_pos_cmd", "gripper_pos"],
+            )
+            self.gripper_pos_cur = gripper_pos
+            return {
+                **{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)},
+                "gripper_pos": state["gripper_pos"][0],
+            }
+        # HTTP 或其它客户端：保持原有多次调用
         if self.cfg.callback_mode == CallbackMode.JOINT_POS:
             robot_action = np.array([action[f"joint_pos{i}"] for i in range(self.joint_num)])
             self.client.set_target_joint_pos(robot_action)
         elif self.cfg.callback_mode == CallbackMode.CART_POS:
-            robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)]) # todo
+            robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)])
             self.client.set_target_cart_pos(robot_action)
         elif self.cfg.callback_mode == CallbackMode.CART_VEL:
-            robot_action = np.array([action[f"cart_vel{i}"] for i in range(6)]) # todo
+            robot_action = np.array([action[f"cart_vel{i}"] for i in range(6)])
             self.client.set_target_cart_vel(robot_action)
 
         if action["gripper_pos"] == 0 and self.gripper_pos_cur != 0:
@@ -152,9 +175,9 @@ class RokaeRobot(Robot):
             self.client.open_gripper()
         self.gripper_pos_cur = action["gripper_pos"]
 
-        state = self.client.get_state(["joint_pos_cmd", "gripper_pos"])  # todo: use next time's joint position
+        state = self.client.get_state(["joint_pos_cmd", "gripper_pos"])
 
-        return {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]} # todo
+        return {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]}
 
     def disconnect(self):
         if not self.is_connected:
@@ -169,3 +192,19 @@ class RokaeRobot(Robot):
     def reset_position(self):
         """重置机器人到拖拽位姿"""
         return self.client.reset_position()
+    
+    def set_gripper_state(self, gripper_pos: int) -> None:
+        """
+        直接设置夹爪状态，不影响机械臂动作。
+        
+        Args:
+            gripper_pos: 夹爪状态，0=关闭，1=打开
+        """
+        if gripper_pos == 0:
+            self.client.close_gripper()
+        elif gripper_pos == 1:
+            self.client.open_gripper()
+        else:
+            raise ValueError(f"Invalid gripper_pos: {gripper_pos}, must be 0 or 1")
+        
+        self.gripper_pos_cur = gripper_pos
