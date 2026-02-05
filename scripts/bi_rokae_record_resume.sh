@@ -48,8 +48,8 @@ width: 640, height: 480, fps: 60, use_depth: false}}"
 python -m lerobot.scripts.lerobot_record \
     --resume=true \
     --robot.type=bi_rokae_robot \
-    --robot.left_server_port=5000 \
-    --robot.right_server_port=5001 \
+    --robot.left_zmq_port=5555 \
+    --robot.right_zmq_port=5556 \
     --robot.left_joint_num=7 \
     --robot.right_joint_num=7 \
     --robot.left_control_mode=cartesian_impedance \

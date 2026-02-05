@@ -8,8 +8,8 @@ from lerobot.robots.robot import Robot
 from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.utils.errors import DeviceNotConnectedError
 from .config_bi_rokae_robot import BiRokaeRobotConfig
-from ..rokae_single_arm.rokae_robot import RokaeRobot
-from ..rokae_single_arm.config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode
+from ..rokae_robot.rokae_robot import RokaeRobot
+from ..rokae_robot.config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +30,19 @@ class BiRokaeRobot(Robot):
         # 自动生成 ZMQ 地址（如果未指定）
         left_zmq_address = config.left_zmq_address
         if left_zmq_address is None:
+            left_zmq_port = getattr(config, "left_zmq_port", 5555)
             if platform.system() == "Windows":
-                left_zmq_address = f"tcp://127.0.0.1:5555"
+                left_zmq_address = f"tcp://127.0.0.1:{left_zmq_port}"
             else:
-                left_zmq_address = f"ipc:///tmp/rokae_server_5555"
+                left_zmq_address = f"ipc:///tmp/rokae_server_{left_zmq_port}"
 
         right_zmq_address = config.right_zmq_address
         if right_zmq_address is None:
+            right_zmq_port = getattr(config, "right_zmq_port", 5556)
             if platform.system() == "Windows":
-                right_zmq_address = f"tcp://127.0.0.1:5556"
+                right_zmq_address = f"tcp://127.0.0.1:{right_zmq_port}"
             else:
-                right_zmq_address = f"ipc:///tmp/rokae_server_5556"
+                right_zmq_address = f"ipc:///tmp/rokae_server_{right_zmq_port}"
 
         # Create left arm config
         left_arm_config = RokaeRobotConfig(
@@ -48,8 +50,6 @@ class BiRokaeRobot(Robot):
             joint_num=config.left_joint_num,
             control_mode=config.left_control_mode,
             callback_mode=config.left_callback_mode,
-            server_port=config.left_server_port,
-            protocol=config.protocol,
             zmq_address=left_zmq_address,
             cameras={},  # Cameras are shared at the bimanual level
         )
@@ -60,8 +60,6 @@ class BiRokaeRobot(Robot):
             joint_num=config.right_joint_num,
             control_mode=config.right_control_mode,
             callback_mode=config.right_callback_mode,
-            server_port=config.right_server_port,
-            protocol=config.protocol,
             zmq_address=right_zmq_address,
             cameras={},  # Cameras are shared at the bimanual level
         )
@@ -89,12 +87,6 @@ class BiRokaeRobot(Robot):
     @cached_property
     def action_features(self) -> dict[str, type]:
         return {**self._left_robot_ft, **self._right_robot_ft}
-
-    @cached_property
-    def tele_action_features(self) -> dict[str, type]:
-        left_tele = {**{f"left_cart_pos{i}": float for i in range(6)}, "left_gripper_pos": float}
-        right_tele = {**{f"right_cart_pos{i}": float for i in range(6)}, "right_gripper_pos": float}
-        return {**left_tele, **right_tele}
 
     @property
     def is_connected(self) -> bool:

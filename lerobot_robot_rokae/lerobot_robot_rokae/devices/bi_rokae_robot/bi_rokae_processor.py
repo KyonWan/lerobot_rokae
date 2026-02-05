@@ -68,8 +68,13 @@ class ExtractBiCartVelAndGripper(RobotActionProcessorStep):
     def transform_features(
         self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
     ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
-        # Remove joint_pos features if they exist (they will be generated from cart_vel)
-        for side in ["left", "right"]:
-            for i in range(6):  # Assuming 6 DOF
-                features[PipelineFeatureType.ACTION].pop(f"{side}_joint_pos{i}", None)
+        # Remove all joint_pos features (they will be replaced by cart_vel)
+        # Iterate over a copy of keys to avoid modification during iteration
+        action_features = features[PipelineFeatureType.ACTION]
+        keys_to_remove = [
+            key for key in action_features.keys()
+            if key.startswith("left_joint_pos") or key.startswith("right_joint_pos")
+        ]
+        for key in keys_to_remove:
+            action_features.pop(key, None)
         return features

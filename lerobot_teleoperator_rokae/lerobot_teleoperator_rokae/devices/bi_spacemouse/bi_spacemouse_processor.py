@@ -15,8 +15,8 @@ class GenerateBiJointPosCmd(ProcessorStep):
     """
     left_joint_num: int = 7
     right_joint_num: int = 7
-    initial_left_gripper_state: int = 0  # 初始左夹爪状态（0=close, 1=open），在episode开始前设置
-    initial_right_gripper_state: int = 0  # 初始右夹爪状态（0=close, 1=open），在episode开始前设置
+    initial_left_gripper_state: int = 1  # 初始左夹爪状态（0=close, 1=open），在episode开始前设置
+    initial_right_gripper_state: int = 1  # 初始右夹爪状态（0=close, 1=open），在episode开始前设置
     
     def __post_init__(self):
         # Gripper切换状态跟踪：记录上一次按钮状态和当前gripper状态

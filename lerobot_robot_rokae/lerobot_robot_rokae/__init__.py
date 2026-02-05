@@ -1,2 +1,2 @@
-from .devices.rokae_single_arm.config_rokae_robot import RokaeRobotConfig
+from .devices.rokae_robot.config_rokae_robot import RokaeRobotConfig
 from .devices.bi_rokae_robot.config_bi_rokae_robot import BiRokaeRobotConfig

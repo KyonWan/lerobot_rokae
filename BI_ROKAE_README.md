@@ -19,7 +19,7 @@
 - 创建了 `BiRokaeRobot` 类（`bi_rokae_robot`）
 - 包含两个独立的Rokae单臂机器人实例
 - 配置文件：`BiRokaeRobotConfig`
-  - `left_server_port`, `right_server_port`: 左右臂服务器端口（默认5000和5001）
+  - `left_server_port`, `right_server_port`: 左右臂服务器端口（用于推断ZMQ端口：5000->5555, 5001->5556）
   - `left_joint_num`, `right_joint_num`: 左右臂关节数
   - `left_control_mode`, `right_control_mode`: 左右臂控制模式
   - `left_callback_mode`, `right_callback_mode`: 左右臂回调模式
@@ -47,7 +47,7 @@ chmod +x rokae_python_wrapper/scripts/start_bi_rokae_servers.sh
 
 **分别启动：**
 ```bash
-# 左臂服务器（端口5000，机器人IP: 192.168.71.161）
+# 左臂服务器（ZMQ端口5555，机器人IP: 192.168.71.161）
 chmod +x rokae_python_wrapper/scripts/start_rokae_left_server.sh
 ./rokae_python_wrapper/scripts/start_rokae_left_server.sh
 
@@ -63,7 +63,10 @@ chmod +x rokae_python_wrapper/scripts/start_rokae_right_server.sh
 **左臂服务器：**
 ```bash
 python -m rokae_python_wrapper.rokae_server \
-    --port=5000 \
+    --robot_ip=192.168.71.161 \
+    --host_ip=192.168.71.230 \
+    --zmq_port=5555 \
+    --zmq_transport=ipc \
     --joint_num=7 \
     --end_effector=linkerhand_v10
 ```
@@ -71,18 +74,25 @@ python -m rokae_python_wrapper.rokae_server \
 **右臂服务器：**
 ```bash
 python -m rokae_python_wrapper.rokae_server \
-    --port=5001 \
+    --robot_ip=192.168.71.160 \
+    --host_ip=192.168.71.230 \
+    --zmq_port=5556 \
+    --zmq_transport=ipc \
     --joint_num=7 \
     --end_effector=linkerhand_v10
 ```
 
 **命令行参数说明：**
-- `--port`: Flask服务器端口（必须不同，默认5000和5001）
+- `--robot_ip`: 机器人IP地址（必需）
+- `--host_ip`: 主机IP地址（必需）
+- `--zmq_port`: ZMQ服务器端口（左臂5555，右臂5556）
+- `--zmq_transport`: ZMQ传输协议（`tcp` 跨网络，`ipc` 本地更快）
 - `--joint_num`: 关节数量（6或7，根据实际机器人配置）
 - `--end_effector`: 末端执行器类型（`linkerhand_v10` 或 `dahuan_gripper`）
 
 **注意：** 
-- 确保两个服务器的端口不同（左臂5000，右臂5001）
+- 确保两个服务器的ZMQ端口不同（左臂5555，右臂5556）
+- IPC模式仅支持Unix/Linux，Windows会自动使用TCP模式
 
 ### 2. 连接SpaceMouse设备
 确保两个SpaceMouse设备已正确连接到计算机。系统会自动检测设备索引0和1。
@@ -107,8 +117,8 @@ chmod +x scripts/bi_rokae_record.sh
 ```bash
 python -m lerobot.scripts.lerobot_record \
     --robot.type=bi_rokae_robot \
-    --robot.left_server_port=5000 \
-    --robot.right_server_port=5001 \
+    --robot.left_zmq_port=5555 \
+    --robot.right_zmq_port=5556 \
     --robot.left_joint_num=7 \
     --robot.right_joint_num=7 \
     --robot.left_control_mode=joint_position \
@@ -131,8 +141,8 @@ python -m lerobot.scripts.lerobot_record \
 
 - `--robot.type=bi_rokae_robot`: 使用双臂Rokae机器人
 - `--teleop.type=bi_spacemouse`: 使用双SpaceMouse遥操作器
-- `--robot.left_server_port=5000`: 左臂服务器端口
-- `--robot.right_server_port=5001`: 右臂服务器端口
+- `--robot.left_zmq_port=5555`: 左臂ZMQ端口
+- `--robot.right_zmq_port=5556`: 右臂ZMQ端口
 - `--teleop.left_device_index=0`: 左臂SpaceMouse设备索引
 - `--teleop.right_device_index=1`: 右臂SpaceMouse设备索引
 
@@ -153,7 +163,7 @@ python -m lerobot.scripts.lerobot_record \
 
 ## 注意事项
 
-1. **服务器端口**: 确保两个Rokae服务器运行在不同的端口上（默认5000和5001）
+1. **ZMQ端口**: 确保两个Rokae服务器运行在不同的ZMQ端口上（默认5555和5556），并在配置中正确设置
 2. **SpaceMouse设备**: 确保两个SpaceMouse设备正确连接，系统会自动分配设备索引
 3. **控制模式**: 确保左右臂的控制模式和回调模式配置正确
 5. **pyspacemouse多设备支持**: 如果遇到多设备问题，可能需要修改 `pyspacemouse` 库或使用其他方法区分设备
@@ -179,7 +189,7 @@ lerobot_teleoperator_rokae/
 lerobot_robot_rokae/
   └── lerobot_robot_rokae/
       └── devices/
-          ├── rokae_single_arm/    # 单臂机器人（已修改支持端口配置）
+          ├── rokae_robot/    # 单臂机器人（已修改支持端口配置）
           └── bi_rokae_robot/      # 双臂机器人（新增）
               ├── __init__.py
               ├── config_bi_rokae_robot.py

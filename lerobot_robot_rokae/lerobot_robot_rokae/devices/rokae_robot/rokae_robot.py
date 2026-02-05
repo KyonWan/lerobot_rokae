@@ -8,7 +8,6 @@ from lerobot.robots.robot import Robot
 from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 from .config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode
-from rokae_python_wrapper.rokae_client import RokaeClient
 from rokae_python_wrapper.rokae_zmq_client import RokaeZmqClient
 import numpy as np
 
@@ -41,34 +40,18 @@ class RokaeRobot(Robot):
         self.cameras = make_cameras_from_configs(config.cameras)
         self.gripper_pos_cur = None
 
-        # 根据配置选择通信协议
-        protocol = getattr(config, "protocol", "zmq")
-        if protocol == "zmq":
-            # 使用 ZMQ 客户端（更快）
-            # 根据 server_port 推断 ZMQ 端口：5000 -> 5555, 5001 -> 5556
-            port = getattr(config, "server_port", 5000)
-            zmq_port = 5555 if port == 5000 else (5556 if port == 5001 else 5555)
-            # 根据操作系统生成正确的地址
-            if hasattr(config, "zmq_address") and config.zmq_address:
-                zmq_address = config.zmq_address
-            else:
-                # 自动生成地址：Windows 使用 TCP，Unix/Linux 使用 IPC
-                if platform.system() == "Windows":
-                    zmq_address = f"tcp://127.0.0.1:{zmq_port}"
-                else:
-                    zmq_address = f"ipc:///tmp/rokae_server_{zmq_port}"
-            self.client = RokaeZmqClient(address=zmq_address)
-            logger.info(f"Using ZMQ client: {zmq_address}")
+        # 使用 ZMQ 客户端
+        if config.zmq_address:
+            zmq_address = config.zmq_address
         else:
-            # 使用 HTTP 客户端
-            port = getattr(config, "server_port", 5000)
-            base_url = f"http://127.0.0.1:{port}"
-            self.client = RokaeClient(base_url=base_url)
-            logger.info(f"Using HTTP client: {base_url}")
-
-    @property
-    def _tele_robot_ft(self) -> dict[str, type]:
-        return {**{f"cart_pos{i}": float for i in range(self.joint_num)}, "gripper_pos": float}
+            # 自动生成地址：Windows 使用 TCP，Unix/Linux 使用 IPC
+            zmq_port = getattr(config, "zmq_port", 5555)
+            if platform.system() == "Windows":
+                zmq_address = f"tcp://127.0.0.1:{zmq_port}"
+            else:
+                zmq_address = f"ipc:///tmp/rokae_server_{zmq_port}"
+        self.client = RokaeZmqClient(address=zmq_address)
+        logger.info(f"Using ZMQ client: {zmq_address}")
 
     @property
     def _robot_ft(self) -> dict[str, type]:
@@ -85,10 +68,6 @@ class RokaeRobot(Robot):
     @cached_property
     def action_features(self) -> dict[str, type]:
         return self._robot_ft
-
-    @cached_property
-    def tele_action_features(self) -> dict[str, type]:
-        return self._tele_robot_ft
 
     @property
     def is_connected(self) -> bool:
@@ -158,7 +137,9 @@ class RokaeRobot(Robot):
                 **{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)},
                 "gripper_pos": state["gripper_pos"][0],
             }
-        # HTTP 或其它客户端：保持原有多次调用
+        # ZMQ 客户端回退逻辑（如果 send_action_and_get_state 不可用）
+        # 这种情况不应该发生，因为 ZMQ 客户端总是支持 send_action_and_get_state
+        # 但保留此逻辑作为安全回退
         if self.cfg.callback_mode == CallbackMode.JOINT_POS:
             robot_action = np.array([action[f"joint_pos{i}"] for i in range(self.joint_num)])
             self.client.set_target_joint_pos(robot_action)
