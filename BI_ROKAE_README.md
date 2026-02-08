@@ -2,6 +2,8 @@
 
 本项目已扩展支持使用两个SpaceMouse同时控制两个Rokae单臂机器人，实现双臂遥操作数据采集。
 
+> 📖 **单臂机器人使用说明**：如需单臂机器人配置，请参考 [README.md](README.md)
+
 ## 主要修改内容
 
 ### 1. SpaceMouse支持多设备
@@ -88,7 +90,7 @@ python -m rokae_python_wrapper.rokae_server \
 - `--zmq_port`: ZMQ服务器端口（左臂5555，右臂5556）
 - `--zmq_transport`: ZMQ传输协议（`tcp` 跨网络，`ipc` 本地更快）
 - `--joint_num`: 关节数量（6或7，根据实际机器人配置）
-- `--end_effector`: 末端执行器类型（`linkerhand_v10` 或 `dahuan_gripper`）
+- `--end_effector`: 末端执行器类型（`linkerhand_v10`、`dahuan_gripper` 或 `none`）
 
 **注意：** 
 - 确保两个服务器的ZMQ端口不同（左臂5555，右臂5556）
