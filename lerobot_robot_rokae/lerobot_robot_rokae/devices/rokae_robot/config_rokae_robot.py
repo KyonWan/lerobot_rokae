@@ -43,3 +43,9 @@ class RokaeRobotConfig(RobotConfig):
 
     # cameras
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
+
+    # rokae_algo 运动学初始化参数（joint_pos 模式下 InverseKinematicsProcessor 使用）
+    # 6 轴使用 cr_init(rbv, min_joint, max_joint)，7 轴使用 cross_wrist7_init(rbv, min_joint, max_joint)
+    rbv: list[float] = field(default_factory=list)           # 机器人描述参数（RD 参数）
+    min_joint: list[float] = field(default_factory=list)     # 关节下限（弧度）
+    max_joint: list[float] = field(default_factory=list)     # 关节上限（弧度）

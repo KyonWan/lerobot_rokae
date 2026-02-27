@@ -34,5 +34,13 @@ class BiRokaeRobotConfig(RobotConfig):
     right_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDNACE
     right_callback_mode: CallbackMode = CallbackMode.CART_VEL
 
+    # rokae_algo 运动学初始化参数（joint_pos 模式下 BiInverseKinematicsProcessor 使用）
+    left_rbv: list[float] = field(default_factory=list)
+    right_rbv: list[float] = field(default_factory=list)
+    left_min_joint: list[float] = field(default_factory=list)
+    left_max_joint: list[float] = field(default_factory=list)
+    right_min_joint: list[float] = field(default_factory=list)
+    right_max_joint: list[float] = field(default_factory=list)
+
     # Cameras (shared between both arms)
     cameras: dict[str, CameraConfig] = field(default_factory=dict)

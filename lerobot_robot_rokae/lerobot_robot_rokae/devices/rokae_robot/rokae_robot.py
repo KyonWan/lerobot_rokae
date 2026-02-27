@@ -8,7 +8,7 @@ from lerobot.robots.robot import Robot
 from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 from .config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode
-from rokae_python_wrapper.rokae_zmq_client import RokaeZmqClient
+from rokae_python_wrapper.rokae_zmq_client import RokaeZmqClient, RokaeZmqClientError
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -53,9 +53,18 @@ class RokaeRobot(Robot):
         self.client = RokaeZmqClient(address=zmq_address)
         logger.info(f"Using ZMQ client: {zmq_address}")
 
+        tool_info = self.client.get_tool_info()
+        self.tool_info = tool_info
+        self.tool_mass = float(tool_info.get("mass"))
+        self.tool_center_of_mass = np.array(tool_info.get("center_of_mass"), dtype=np.float64)
+        self.tool_inertia_tensor = np.array(tool_info.get("inertia_tensor"), dtype=np.float64)
+        self.tool_end_pos = np.array(tool_info.get("end_pos"), dtype=np.float64)
+        self.tool_ref_pos = np.array(tool_info.get("ref_pos"), dtype=np.float64)
+        self.base_frame_in_world = np.array(self.client.get_base_frame(), dtype=np.float64)
+
     @property
     def _robot_ft(self) -> dict[str, type]:
-        return {**{f"joint_pos{i}": float for i in range(self.joint_num)}, "gripper_pos": float}
+        return {**{f"joint_pos{i}": float for i in range(self.joint_num)}, **{f"cart_pos{i}": float for i in range(6)}, "psi": float, "gripper_pos": float}
 
     @property
     def _cameras_ft(self) -> dict[str, tuple]:
@@ -67,7 +76,7 @@ class RokaeRobot(Robot):
 
     @cached_property
     def action_features(self) -> dict[str, type]:
-        return self._robot_ft
+        return {**{f"joint_pos{i}": float for i in range(self.joint_num)}, "gripper_pos": float}
 
     @property
     def is_connected(self) -> bool:
@@ -99,8 +108,15 @@ class RokaeRobot(Robot):
 
         # Read arm position
         start = time.perf_counter()
-        state = self.client.get_state(["joint_pos_cmd", "gripper_pos"])
-        obs_dict = {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]}
+        state = self.client.get_state(
+            ["joint_pos_cmd", "cart_pos_cmd", "psi", "gripper_pos"]
+        )
+        obs_dict = {
+            **{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)},
+            **{f"cart_pos{i}": state["cart_pos_cmd"][i] for i in range(6)},
+            "psi": state["psi"],
+            "gripper_pos": state["gripper_pos"][0],
+        }
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
 
@@ -156,7 +172,7 @@ class RokaeRobot(Robot):
             self.client.open_gripper()
         self.gripper_pos_cur = action["gripper_pos"]
 
-        state = self.client.get_state(["joint_pos_cmd", "gripper_pos"])
+        state = self.client.get_state(["joint_pos_cmd", "cart_pos_cmd", "psi", "gripper_pos"])
 
         return {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]}
 
