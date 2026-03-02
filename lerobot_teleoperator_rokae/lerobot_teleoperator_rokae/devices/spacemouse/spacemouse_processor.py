@@ -14,6 +14,13 @@ try:
 except ImportError:
     rokae_algo = None
 
+from lerobot_robot_rokae.lerobot_robot_rokae.utils.transform_utils import (
+    TransformCache,
+    inv_homogeneous,
+    pose_to_transform,
+    transform_to_pose,
+)
+
 
 def _end_effector_to_cart_pose_6(end_effector: list[float]) -> np.ndarray:
     """将正解返回值转为内部 [x,y,z,rx,ry,rz]（欧拉 xyz）。
@@ -62,72 +69,6 @@ def update_gripper_state_from_buttons(
     return button_curr, gripper_state
 
 
-@ProcessorStepRegistry.register("generate_joint_pos_cmd")
-@dataclass
-class GenerateJointPosCmd(ProcessorStep):
-    """
-    Processor for single arm spacemouse: generates joint position commands from cartesian velocities
-    by maintaining current joint positions.
-    This copies joint positions from observation to action, and converts button presses to gripper toggle states.
-    """
-    joint_num: int = 6
-    initial_gripper_state: int = 1  # 初始夹爪状态（0=close, 1=open），在episode开始前设置
-    
-    def __post_init__(self):
-        # Gripper切换状态跟踪：记录上一次按钮状态和当前gripper状态
-        self.button_prev = 0  # 上一次按钮状态（0=未按下，1=按下）
-        self.gripper_state = self.initial_gripper_state  # 当前gripper状态（0=close, 1=open）
-    
-    def reset(self, gripper_state: int | None = None) -> None:
-        """
-        Reset gripper state to initial value or specified value.
-        Called at the start of each episode to synchronize gripper state.
-        
-        Args:
-            gripper_state: Gripper state to set (0=close, 1=open). If None, use initial_gripper_state.
-        """
-        self.button_prev = 0
-        self.gripper_state = gripper_state if gripper_state is not None else self.initial_gripper_state
-    
-    def __call__(self, transition: Transition) -> Transition:
-        """
-        Process transition: copy joint positions from observation to action,
-        and convert button presses to gripper toggle states.
-        """
-        transition = transition.copy()
-        obs = transition.get(TransitionKey.OBSERVATION)
-        action = transition.get(TransitionKey.ACTION)
-        
-        # Extract buttons from action
-        buttons = action.pop("buttons", [0, 0])
-        
-        # Copy joint positions from observation to action
-        for i in range(self.joint_num):
-            action[f"joint_pos{i}"] = obs[f"joint_pos{i}"]
-        
-        # Convert button presses to gripper toggle states
-        self.button_prev, self.gripper_state = update_gripper_state_from_buttons(
-            buttons=buttons,
-            button_prev=self.button_prev,
-            gripper_state=self.gripper_state,
-        )
-        
-        # 使用切换后的gripper状态（0=close, 1=open）
-        action["gripper_pos"] = float(self.gripper_state)
-        
-        transition[TransitionKey.ACTION] = action
-        return transition
-    
-    def transform_features(
-        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
-    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
-        # Ensure joint_pos features exist
-        for i in range(self.joint_num):
-            features[PipelineFeatureType.ACTION][f"joint_pos{i}"] = float
-        # Ensure gripper_pos feature exists
-        features[PipelineFeatureType.ACTION]["gripper_pos"] = float
-        return features
-
 @ProcessorStepRegistry.register("inverse_kinematics_processor")
 @dataclass
 class InverseKinematicsProcessor(ProcessorStep):
@@ -155,13 +96,18 @@ class InverseKinematicsProcessor(ProcessorStep):
     base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # base 相对于 world [x,y,z,rx,ry,rz]
 
     _cart_pose: np.ndarray | None = field(default=None, init=False, repr=False)  # [x, y, z, rx, ry, rz]
-    _elbow: float | None = field(default=None, init=False, repr=False)            # 7 轴臂角 psi
+    _elbow: float = field(default=0.0, init=False, repr=False)  # 臂角 psi，7轴时为实际值，非7轴时为 0.0
     _inited: bool = field(default=False, init=False, repr=False)                  # rokae_algo 是否已初始化
     button_prev: int = field(default=0, init=False, repr=False)                   # 上一帧按钮状态，用于夹爪上升沿切换
     gripper_state: int = field(default=1, init=False, repr=False)                 # 当前夹爪状态（0=close, 1=open）
 
     def __post_init__(self) -> None:
         self.gripper_state = self.initial_gripper_state
+        # 初始化缓存对象
+        self._transform_cache = TransformCache()
+        self._cached_tool_end_pos = None
+        self._cached_T_flan_end = None
+        
         if rokae_algo is None or not self.rbv or not self.min_joint or not self.max_joint:
             self._inited = False
             return
@@ -187,9 +133,12 @@ class InverseKinematicsProcessor(ProcessorStep):
 
     def reset(self, gripper_state: int | None = None) -> None:
         self._cart_pose = None
-        self._elbow = None
+        self._elbow = 0.0  # 重置为 0.0
         self.button_prev = 0
         self.gripper_state = gripper_state if gripper_state is not None else self.initial_gripper_state
+        self._transform_cache.clear_cache()
+        self._cached_tool_end_pos = None
+        self._cached_T_flan_end = None
 
     def __call__(self, transition: Transition) -> Transition:
         if not self._inited or rokae_algo is None:
@@ -199,7 +148,7 @@ class InverseKinematicsProcessor(ProcessorStep):
         obs = transition.get(TransitionKey.OBSERVATION)
         action = transition.get(TransitionKey.ACTION)
 
-        # SpaceMouse 按钮 -> 夹爪切换（与 GenerateJointPosCmd 一致）
+        # SpaceMouse 按钮 -> 夹爪切换
         buttons = action.pop("buttons", [0, 0])
         self.button_prev, self.gripper_state = update_gripper_state_from_buttons(
             buttons=buttons,
@@ -211,6 +160,11 @@ class InverseKinematicsProcessor(ProcessorStep):
             [obs[f"joint_pos{i}"] for i in range(self.joint_num)],
             dtype=np.float64,
         )
+
+        cart_pos_end_in_base = np.array([obs[f"cart_pos{i}"] for i in range(6)], dtype=np.float64)
+        # 统一处理 psi：非7轴时为 0.0
+        psi = float(obs.get("psi", 0.0))
+
         cart_vel = np.array(
             [action.get(f"cart_vel{i}", 0.0) for i in range(6)],
             dtype=np.float64,
@@ -218,90 +172,98 @@ class InverseKinematicsProcessor(ProcessorStep):
         cart_vel[:3] *= float(self.trans_max_vel)
         cart_vel[3:] *= float(self.rot_max_vel)
 
-        q_solution = self.process_coordinate_transform_and_ik(cart_vel, q_current)
+        q_solution, cart_pos_ref_end = self.process_coordinate_transform_and_ik(cart_vel, q_current, cart_pos_end_in_base, psi)
+        
+        # 总是输出 cart_pos、joint_pos 和 cart_vel（用于记录到数据集）
+        # robot processor 会根据 callback_mode 选择发送哪个字段给机器人（在 robot_action_processor 中处理）
+        for i in range(6):
+            action[f"cart_pos{i}"] = float(cart_pos_ref_end[i])
         for i in range(self.joint_num):
             action[f"joint_pos{i}"] = float(q_solution[i])
+        
+        # 输出 cart_vel（end 相对于 ref，已经乘以速度限制）
+        for i in range(6):
+            action[f"cart_vel{i}"] = float(cart_vel[i])
+        
+        # 总是输出 psi（用于记录到数据集），非7轴时为 0.0
+        action["psi"] = float(psi)
 
         action["gripper_pos"] = float(self.gripper_state)
 
         transition[TransitionKey.ACTION] = action
         return transition
     
-    def process_coordinate_transform_and_ik(self, cart_vel, q_current):
-
-        # 初始化当前笛卡尔位姿：用 rokae_algo 正解（返回 [x,y,z, qw,qx,qy,qz] 或 [x,y,z,rx,ry,rz]）
+    def process_coordinate_transform_and_ik(self, cart_vel, q_current, cart_pos_end_in_base, psi=0.0):
+        """
+        处理坐标系变换和逆解。
+        
+        Args:
+            cart_vel: 笛卡尔速度 [vx, vy, vz, wx, wy, wz]
+            q_current: 当前关节位置
+            cart_pos_end_in_base: 笛卡尔位置（end相对于base），必须提供
+            psi: psi值，7轴时为实际臂角，非7轴时为 0.0
+        
+        Returns:
+            (q_solution, cart_pos_ref_end): 关节解和 end 相对于 ref 的位置
+        """
+        # 检查必需参数
+        if cart_pos_end_in_base is None:
+            raise ValueError("cart_pos_end_in_base must be provided")
+        # psi 总是有值（非7轴时为 0.0），无需检查 None
+        
+        # 缓存 T_flan_end（tool_end_pos 通常不变）
+        # tool_end_pos 是 end 相对于 flange，所以 T_flan_end = pose_to_transform(tool_end_pos) 是 end 相对于 flange
+        # 但我们需要的是 flange 相对于 end，所以需要取逆
+        if (
+            self._cached_T_flan_end is None
+            or self._cached_tool_end_pos is None
+            or not np.allclose(self._cached_tool_end_pos, self.tool_end_pos, rtol=1e-10, atol=1e-10)
+        ):
+            T_end_flan = pose_to_transform(self.tool_end_pos)  # end 相对于 flange
+            self._cached_T_flan_end = inv_homogeneous(T_end_flan)  # flange 相对于 end
+            self._cached_tool_end_pos = self.tool_end_pos.copy()
+        T_flan_end = self._cached_T_flan_end
+        
+        # 初始化当前笛卡尔位姿
         if self._cart_pose is None:
-            if self.joint_num == 6:
-                end_effector, ec = rokae_algo.cr6_jnt2cart(q_current.tolist())
-                if ec == 0 and len(end_effector) >= 6:
-                    self._cart_pose = _end_effector_to_cart_pose_6(end_effector)
-                else:
-                    self._cart_pose = np.zeros(6, dtype=np.float64)
-            else:
-                end_effector, psi, ec = rokae_algo.cross_wrist7_jnt2cart(q_current.tolist())
-                if ec == 0 and len(end_effector) >= 6:
-                    self._cart_pose = _end_effector_to_cart_pose_6(end_effector)
-                    self._elbow = float(psi)
-                else:
-                    self._cart_pose = np.zeros(6, dtype=np.float64)
-                    self._elbow = 0.0
+            # cart_pos_end_in_base 是 end 相对于 base
+            T_base_end = pose_to_transform(cart_pos_end_in_base)
+            
+            # 转换为 flange 相对于 base: T_base_flan = T_base_end @ T_end_flan
+            # T_end_flan = inv_homogeneous(T_flan_end)
+            T_end_flan = inv_homogeneous(T_flan_end)
+            T_base_flan = T_base_end @ T_end_flan
+            
+            self._cart_pose = transform_to_pose(T_base_flan)
+            
+            # 对于7轴，使用从观测中获取的psi
+            if self.joint_num == 7:
+                self._elbow = float(psi)
 
-        def make_homogeneous(R_mat, trans_vec):
-            """将旋转矩阵和平移向量组成齐次变换矩阵"""
-            H = np.eye(4)
-            H[:3, :3] = R_mat
-            H[:3, 3] = trans_vec
-            return H
-        
-        def inv_homogeneous(T: np.ndarray) -> np.ndarray:
-            """求4x4齐次变换矩阵的逆"""
-            R_part = T[:3, :3]
-            t_part = T[:3, 3]
-            T_inv = np.eye(4)
-            R_inv = R_part.T
-            t_inv = -R_inv @ t_part
-            T_inv[:3, :3] = R_inv
-            T_inv[:3, 3] = t_inv
-            return T_inv
-
-        R_world_base = R.from_euler(
-            "xyz",
-            self.base_frame_in_world[3:],
-            degrees=False,
-        ).as_matrix()
-        T_world_base = make_homogeneous(R_world_base, np.array(self.base_frame_in_world[:3]))
-        
-        R_world_ref = R.from_euler(
-            "xyz",
-            self.tool_ref_pos[3:],
-            degrees=False,
-        ).as_matrix()
-        T_world_ref = make_homogeneous(R_world_ref, np.array(self.tool_ref_pos[:3]))
-        T_base_ref = inv_homogeneous(T_world_base) @ T_world_ref
+        # 使用缓存获取 T_base_ref 和 T_ref_base
+        T_base_ref, _ = self._transform_cache.get_base_ref_transform(
+            self.tool_ref_pos, self.base_frame_in_world
+        )
         T_ref_base = inv_homogeneous(T_base_ref)
 
-        R_flan_end = R.from_euler(
-            "xyz",
-            self.tool_end_pos[3:],
-            degrees=False,
-        ).as_matrix()
-        T_flan_end = make_homogeneous(R_flan_end, np.array(self.tool_end_pos[:3]))
-        T_end_flan = inv_homogeneous(T_flan_end)
+        # T_base_flan 从当前 _cart_pose 计算（会变化，不缓存）
+        T_base_flan = pose_to_transform(self._cart_pose)
 
-        R_base_flan = R.from_euler(
-            "xyz",
-            self._cart_pose[3:],
-            degrees=False,
-        ).as_matrix()
-        T_base_flan = make_homogeneous(R_base_flan, np.array(self._cart_pose[:3]))
-
+        # T_ref_end = T_ref_base @ T_base_flan @ T_flan_end
         T_ref_end = T_ref_base @ T_base_flan @ T_flan_end
 
-        T_ref_end_new = T_ref_end
+        T_ref_end_new = T_ref_end.copy()
         T_ref_end_new[:3, 3] += cart_vel[:3] * self.control_period
         R_rot = R.from_rotvec(cart_vel[3:] * self.control_period).as_matrix()
         T_ref_end_new[:3, :3] = R_rot @ T_ref_end_new[:3, :3]
 
+        # 提取 end 相对于 ref 的位置（用于 cart_pos mode）
+        cart_pos_ref_end = np.zeros(6, dtype=np.float64)
+        cart_pos_ref_end[:3] = T_ref_end_new[:3, 3]
+        R_ref_end = R.from_matrix(T_ref_end_new[:3, :3])
+        cart_pos_ref_end[3:] = R_ref_end.as_euler("xyz", degrees=False)
+
+        T_end_flan = inv_homogeneous(T_flan_end)
         T_base_flan = T_base_ref @ T_ref_end_new @ T_end_flan
 
         # 更新当前位置 [x, y, z, rx, ry, rz]（位置 + 姿态）
@@ -319,16 +281,31 @@ class InverseKinematicsProcessor(ProcessorStep):
             q_solution, ec = rokae_algo.cross_wrist7_cart2jnt(q_init, end_effector_list, self._elbow)
         if ec != 0:
             q_solution = q_current.tolist()
-        return q_solution
+        return q_solution, cart_pos_ref_end
 
 
     def transform_features(
         self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
     ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
-        # 确保关节位置特征存在（本 Processor 会写 joint_pos）
+        # 总是添加 cart_pos、joint_pos 和 cart_vel 特征（用于记录到数据集）
         action_features = features[PipelineFeatureType.ACTION]
+        
+        # joint_pos 特征
         for i in range(self.joint_num):
             action_features.setdefault(f"joint_pos{i}", float)
-        # 保持与 GenerateJointPosCmd 一致，也确保有 gripper_pos 特征
+        
+        # cart_pos 特征
+        for i in range(6):
+            action_features.setdefault(f"cart_pos{i}", float)
+        
+        # cart_vel 特征（end 相对于 ref）
+        for i in range(6):
+            action_features.setdefault(f"cart_vel{i}", float)
+        
+        # psi 特征（总是添加，非7轴时为 0.0）
+        action_features.setdefault("psi", float)
+        
+        # gripper_pos 特征
         action_features.setdefault("gripper_pos", float)
+        
         return features

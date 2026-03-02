@@ -76,7 +76,15 @@ class RokaeRobot(Robot):
 
     @cached_property
     def action_features(self) -> dict[str, type]:
-        return {**{f"joint_pos{i}": float for i in range(self.joint_num)}, "gripper_pos": float}
+        # 包含所有可能用到的特征（joint_pos 和 cart_pos）
+        # processor pipeline 会根据 callback_mode 选择实际发送给机器人的字段
+        features = {
+            **{f"joint_pos{i}": float for i in range(self.joint_num)},
+            **{f"cart_pos{i}": float for i in range(6)},
+            "psi": float,
+            "gripper_pos": float
+        }
+        return features
 
     @property
     def is_connected(self) -> bool:
@@ -109,12 +117,12 @@ class RokaeRobot(Robot):
         # Read arm position
         start = time.perf_counter()
         state = self.client.get_state(
-            ["joint_pos_cmd", "cart_pos_cmd", "psi", "gripper_pos"]
+            ["joint_pos_real", "cart_pos_real", "psi", "gripper_pos"]
         )
         obs_dict = {
-            **{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)},
-            **{f"cart_pos{i}": state["cart_pos_cmd"][i] for i in range(6)},
-            "psi": state["psi"],
+            **{f"joint_pos{i}": state["joint_pos_real"][i] for i in range(self.joint_num)},
+            **{f"cart_pos{i}": state["cart_pos_real"][i] for i in range(6)},
+            "psi": state.get("psi", 0.0),
             "gripper_pos": state["gripper_pos"][0],
         }
         dt_ms = (time.perf_counter() - start) * 1e3
@@ -146,11 +154,11 @@ class RokaeRobot(Robot):
                 action_type=action_type,
                 action_value=robot_action,
                 gripper_pos=gripper_pos,
-                quantities=["joint_pos_cmd", "gripper_pos"],
+                quantities=["joint_pos_real", "gripper_pos"],
             )
             self.gripper_pos_cur = gripper_pos
             return {
-                **{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)},
+                **{f"joint_pos{i}": state["joint_pos_real"][i] for i in range(self.joint_num)},
                 "gripper_pos": state["gripper_pos"][0],
             }
         # ZMQ 客户端回退逻辑（如果 send_action_and_get_state 不可用）
@@ -172,9 +180,9 @@ class RokaeRobot(Robot):
             self.client.open_gripper()
         self.gripper_pos_cur = action["gripper_pos"]
 
-        state = self.client.get_state(["joint_pos_cmd", "cart_pos_cmd", "psi", "gripper_pos"])
+        state = self.client.get_state(["joint_pos_real", "cart_pos_real", "psi", "gripper_pos"])
 
-        return {**{f"joint_pos{i}": state["joint_pos_cmd"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]}
+        return {**{f"joint_pos{i}": state["joint_pos_real"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]}
 
     def disconnect(self):
         if not self.is_connected:

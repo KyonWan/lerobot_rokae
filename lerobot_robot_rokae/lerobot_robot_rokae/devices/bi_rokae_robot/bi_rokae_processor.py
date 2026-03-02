@@ -1,80 +1,234 @@
 from lerobot.processor.pipeline import RobotActionProcessorStep, ProcessorStepRegistry
 from lerobot.processor.core import RobotAction
 from lerobot.configs.types import PipelineFeatureType, PolicyFeature
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import numpy as np
-from scipy.spatial.transform import Rotation as R
+
+from lerobot_robot_rokae.lerobot_robot_rokae.utils.transform_utils import (
+    TransformCache,
+    transform_pose,
+    transform_velocity,
+)
 
 
-@ProcessorStepRegistry.register("bi_spacemouse_vel_map")
+@ProcessorStepRegistry.register("bi_cart_pos_ref_to_base")
 @dataclass
-class ExtractBiCartVelAndGripper(RobotActionProcessorStep):
+class BiCartPosRefToBaseProcessor(RobotActionProcessorStep):
     """
-    Processor for bimanual spacemouse: extracts cartesian velocities and gripper states
-    for both left and right arms.
+    Processor for bimanual cart_pos callback mode: converts cart_pos from end-relative-to-ref 
+    to end-relative-to-base for robot control.
+    
     This processor runs in robot_action_processor pipeline (before sending to robot).
+    The stored action still contains end-relative-to-ref, but the robot receives 
+    end-relative-to-base.
+    
+    Left and right arms have independent tool_ref_pos and base_frame_in_world configurations.
     """
-    TRANS_MAX_VEL = 0.1
-    ROT_MAX_VEL = 0.2
-
+    left_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # left ref 相对于 world
+    left_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # left base 相对于 world
+    right_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # right ref 相对于 world
+    right_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # right base 相对于 world
+    
     def __post_init__(self):
-        # 左臂：基相对于世界是沿X轴旋转-90°
-        R_base_in_world_left = R.from_euler("X", -90, degrees=True)
-        self.R_world_in_base_left = R_base_in_world_left.inv().as_matrix()
-
-        # 右臂：基相对于世界是沿X轴旋转90°
-        R_base_in_world_right = R.from_euler("X", 90, degrees=True)
-        self.R_world_in_base_right = R_base_in_world_right.inv().as_matrix()
+        """初始化缓存对象"""
+        self._left_transform_cache = TransformCache()
+        self._right_transform_cache = TransformCache()
 
     def action(self, action: RobotAction) -> RobotAction:
-        # Process left arm
-        # 原始速度是世界相对于基的速度（在世界坐标系中表示）
-        left_trans_vel_world = np.array([action[f"left_cart_vel{i}"] for i in range(3)])
-        left_rot_vel_world = np.array([action[f"left_cart_vel{i+3}"] for i in range(3)])
-
-        # 转换为基坐标系中的速度（末端相对于基）
-        left_trans_vel = self.R_world_in_base_left @ left_trans_vel_world
-        left_rot_vel = self.R_world_in_base_left @ left_rot_vel_world
-
-        left_trans_vel *= self.TRANS_MAX_VEL
-        left_rot_vel *= self.ROT_MAX_VEL
-
-        # Process right arm
-        # 原始速度是世界相对于基的速度（在世界坐标系中表示）
-        right_trans_vel_world = np.array([action[f"right_cart_vel{i}"] for i in range(3)])
-        right_rot_vel_world = np.array([action[f"right_cart_vel{i+3}"] for i in range(3)])
-
-        # 转换为基坐标系中的速度（末端相对于基）
-        right_trans_vel = self.R_world_in_base_right @ right_trans_vel_world
-        right_rot_vel = self.R_world_in_base_right @ right_rot_vel_world
-
-        right_trans_vel *= self.TRANS_MAX_VEL
-        right_rot_vel *= self.ROT_MAX_VEL
-
-        # Extract gripper states - 直接使用teleop processor已经转换好的gripper状态
-        # gripper_pos已经是夹爪开关状态（0=close, 1=open），不需要再次转换
-        left_gripper = action.get("left_gripper_pos")
-        right_gripper = action.get("right_gripper_pos")
-
-        return {
-            **{f"left_cart_vel{i}": float(left_trans_vel[i]) for i in range(3)},
-            **{f"left_cart_vel{i+3}": float(left_rot_vel[i]) for i in range(3)},
-            "left_gripper_pos": float(left_gripper),
-            **{f"right_cart_vel{i}": float(right_trans_vel[i]) for i in range(3)},
-            **{f"right_cart_vel{i+3}": float(right_rot_vel[i]) for i in range(3)},
-            "right_gripper_pos": float(right_gripper),
-        }
+        """
+        将左右臂的 cart_pos (end相对于ref) 转换为 end相对于base。
+        """
+        result = dict(action)
+        
+        # 处理左臂
+        if all(f"left_cart_pos{i}" in action for i in range(6)):
+            left_cart_pos_ref = np.array([action[f"left_cart_pos{i}"] for i in range(6)], dtype=np.float64)
+            T_base_ref, _ = self._left_transform_cache.get_base_ref_transform(
+                self.left_tool_ref_pos, self.left_base_frame_in_world
+            )
+            left_cart_pos_base = transform_pose(left_cart_pos_ref, T_base_ref)
+            for i in range(6):
+                result[f"left_cart_pos{i}"] = float(left_cart_pos_base[i])
+        
+        # 处理右臂
+        if all(f"right_cart_pos{i}" in action for i in range(6)):
+            right_cart_pos_ref = np.array([action[f"right_cart_pos{i}"] for i in range(6)], dtype=np.float64)
+            T_base_ref, _ = self._right_transform_cache.get_base_ref_transform(
+                self.right_tool_ref_pos, self.right_base_frame_in_world
+            )
+            right_cart_pos_base = transform_pose(right_cart_pos_ref, T_base_ref)
+            for i in range(6):
+                result[f"right_cart_pos{i}"] = float(right_cart_pos_base[i])
+        
+        return result
 
     def transform_features(
         self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
     ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
-        # Remove all joint_pos features (they will be replaced by cart_vel)
-        # Iterate over a copy of keys to avoid modification during iteration
+        # 确保 cart_pos 特征存在（本 Processor 会转换 cart_pos）
         action_features = features[PipelineFeatureType.ACTION]
-        keys_to_remove = [
-            key for key in action_features.keys()
-            if key.startswith("left_joint_pos") or key.startswith("right_joint_pos")
-        ]
-        for key in keys_to_remove:
-            action_features.pop(key, None)
+        for i in range(6):
+            action_features.setdefault(f"left_cart_pos{i}", float)
+            action_features.setdefault(f"right_cart_pos{i}", float)
         return features
+
+
+@ProcessorStepRegistry.register("bi_cart_vel_ref_to_base")
+@dataclass
+class BiCartVelRefToBaseProcessor(RobotActionProcessorStep):
+    """
+    Processor for bimanual cart_vel callback mode: converts cart_vel from end-relative-to-ref 
+    to end-relative-to-base for robot control.
+    
+    This processor runs in robot_action_processor pipeline (before sending to robot).
+    The stored action still contains end-relative-to-ref, but the robot receives 
+    end-relative-to-base.
+    
+    Left and right arms have independent tool_ref_pos and base_frame_in_world configurations.
+    """
+    left_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # left ref 相对于 world
+    left_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # left base 相对于 world
+    right_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # right ref 相对于 world
+    right_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # right base 相对于 world
+    
+    def __post_init__(self):
+        """初始化缓存对象"""
+        self._left_transform_cache = TransformCache()
+        self._right_transform_cache = TransformCache()
+
+    def action(self, action: RobotAction) -> RobotAction:
+        """
+        将左右臂的 cart_vel (end相对于ref) 转换为 end相对于base。
+        速度转换只需要旋转矩阵，不需要平移。
+        """
+        result = dict(action)
+        
+        # 处理左臂
+        if all(f"left_cart_vel{i}" in action for i in range(6)):
+            left_cart_vel_ref = np.array([action[f"left_cart_vel{i}"] for i in range(6)], dtype=np.float64)
+            _, R_base_ref = self._left_transform_cache.get_base_ref_transform(
+                self.left_tool_ref_pos, self.left_base_frame_in_world
+            )
+            left_cart_vel_base = transform_velocity(left_cart_vel_ref, R_base_ref)
+            for i in range(6):
+                result[f"left_cart_vel{i}"] = float(left_cart_vel_base[i])
+        
+        # 处理右臂
+        if all(f"right_cart_vel{i}" in action for i in range(6)):
+            right_cart_vel_ref = np.array([action[f"right_cart_vel{i}"] for i in range(6)], dtype=np.float64)
+            _, R_base_ref = self._right_transform_cache.get_base_ref_transform(
+                self.right_tool_ref_pos, self.right_base_frame_in_world
+            )
+            right_cart_vel_base = transform_velocity(right_cart_vel_ref, R_base_ref)
+            for i in range(6):
+                result[f"right_cart_vel{i}"] = float(right_cart_vel_base[i])
+        
+        return result
+
+    def transform_features(
+        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
+    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
+        # 确保 cart_vel 特征存在（本 Processor 会转换 cart_vel）
+        action_features = features[PipelineFeatureType.ACTION]
+        for i in range(6):
+            action_features.setdefault(f"left_cart_vel{i}", float)
+            action_features.setdefault(f"right_cart_vel{i}", float)
+        return features
+
+
+@ProcessorStepRegistry.register("bi_select_action_by_callback_mode")
+@dataclass
+class BiSelectActionByCallbackMode(RobotActionProcessorStep):
+    """
+    Processor that selects action fields based on callback mode for bimanual robots.
+    For joint_pos mode: keeps joint_pos, removes cart_pos, cart_vel, psi
+    For cart_pos mode: keeps cart_pos, removes joint_pos, cart_vel, psi
+    For cart_vel mode: keeps cart_vel, removes joint_pos, cart_pos, psi
+    
+    Left and right arms may have different joint_num.
+    """
+    callback_mode: str = "joint_pos"  # "joint_pos", "cart_pos", or "cart_vel"
+    left_joint_num: int = 7
+    right_joint_num: int = 7
+
+    def action(self, action: RobotAction) -> RobotAction:
+        """
+        根据 callback_mode 选择发送给机器人的字段。
+        """
+        result = dict(action)
+        
+        if self.callback_mode == "joint_pos":
+            # joint_pos mode: 保留 joint_pos，移除 cart_pos, cart_vel, psi
+            for i in range(6):
+                result.pop(f"left_cart_pos{i}", None)
+                result.pop(f"left_cart_vel{i}", None)
+                result.pop(f"right_cart_pos{i}", None)
+                result.pop(f"right_cart_vel{i}", None)
+            result.pop("left_psi", None)
+            result.pop("right_psi", None)
+        elif self.callback_mode == "cart_pos":
+            # cart_pos mode: 保留 cart_pos，移除 joint_pos, cart_vel, psi
+            for i in range(self.left_joint_num):
+                result.pop(f"left_joint_pos{i}", None)
+            for i in range(self.right_joint_num):
+                result.pop(f"right_joint_pos{i}", None)
+            for i in range(6):
+                result.pop(f"left_cart_vel{i}", None)
+                result.pop(f"right_cart_vel{i}", None)
+            result.pop("left_psi", None)
+            result.pop("right_psi", None)
+        elif self.callback_mode == "cart_vel":
+            # cart_vel mode: 保留 cart_vel，移除 joint_pos, cart_pos, psi
+            for i in range(self.left_joint_num):
+                result.pop(f"left_joint_pos{i}", None)
+            for i in range(self.right_joint_num):
+                result.pop(f"right_joint_pos{i}", None)
+            for i in range(6):
+                result.pop(f"left_cart_pos{i}", None)
+                result.pop(f"right_cart_pos{i}", None)
+            result.pop("left_psi", None)
+            result.pop("right_psi", None)
+        
+        return result
+
+    def transform_features(
+        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
+    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
+        # 根据 callback_mode 移除不需要的特征
+        action_features = features[PipelineFeatureType.ACTION]
+        
+        if self.callback_mode == "joint_pos":
+            # 移除 cart_pos, cart_vel, psi 特征
+            for i in range(6):
+                action_features.pop(f"left_cart_pos{i}", None)
+                action_features.pop(f"left_cart_vel{i}", None)
+                action_features.pop(f"right_cart_pos{i}", None)
+                action_features.pop(f"right_cart_vel{i}", None)
+            action_features.pop("left_psi", None)
+            action_features.pop("right_psi", None)
+        elif self.callback_mode == "cart_pos":
+            # 移除 joint_pos, cart_vel, psi 特征
+            for i in range(self.left_joint_num):
+                action_features.pop(f"left_joint_pos{i}", None)
+            for i in range(self.right_joint_num):
+                action_features.pop(f"right_joint_pos{i}", None)
+            for i in range(6):
+                action_features.pop(f"left_cart_vel{i}", None)
+                action_features.pop(f"right_cart_vel{i}", None)
+            action_features.pop("left_psi", None)
+            action_features.pop("right_psi", None)
+        elif self.callback_mode == "cart_vel":
+            # 移除 joint_pos, cart_pos, psi 特征
+            for i in range(self.left_joint_num):
+                action_features.pop(f"left_joint_pos{i}", None)
+            for i in range(self.right_joint_num):
+                action_features.pop(f"right_joint_pos{i}", None)
+            for i in range(6):
+                action_features.pop(f"left_cart_pos{i}", None)
+                action_features.pop(f"right_cart_pos{i}", None)
+            action_features.pop("left_psi", None)
+            action_features.pop("right_psi", None)
+        
+        return features
+
+

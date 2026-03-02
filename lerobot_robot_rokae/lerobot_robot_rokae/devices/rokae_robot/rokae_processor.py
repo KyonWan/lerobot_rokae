@@ -5,54 +5,186 @@ from lerobot.utils.constants import OBS_STATE, ACTION
 from dataclasses import dataclass, field
 from typing import Any
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
-@ProcessorStepRegistry.register("space_mouse_vel_map")
+from lerobot_robot_rokae.lerobot_robot_rokae.utils.transform_utils import (
+    TransformCache,
+    transform_pose,
+    transform_velocity,
+)
+
+@ProcessorStepRegistry.register("cart_pos_ref_to_base")
 @dataclass
-class ExtractCartVelAndGripper(RobotActionProcessorStep):
+class CartPosRefToBaseProcessor(RobotActionProcessorStep):
     """
-    Processor for single arm spacemouse: extracts cartesian velocities and gripper states.
+    Processor for cart_pos callback mode: converts cart_pos from end-relative-to-ref 
+    to end-relative-to-base for robot control.
+    
     This processor runs in robot_action_processor pipeline (before sending to robot).
+    The stored action still contains end-relative-to-ref, but the robot receives 
+    end-relative-to-base.
     """
-    TRANS_MAX_VEL = 0.1
-    ROT_MAX_VEL = 0.2
-
+    tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # ref 相对于 world
+    base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # base 相对于 world
+    
     def __post_init__(self):
-        # 单臂：基相对于世界是沿X轴旋转90°（默认右臂）
-        # 如果需要左臂，可以修改为-90°
-        R_base_in_world = R.from_euler("X", 0, degrees=True)
-        self.R_world_in_base = R_base_in_world.inv().as_matrix()
+        """初始化缓存对象"""
+        self._transform_cache = TransformCache()
 
     def action(self, action: RobotAction) -> RobotAction:
-        # 原始速度是世界相对于基的速度（在世界坐标系中表示）
-        trans_vel_world = np.array([action[f"cart_vel{i}"] for i in range(3)])
-        rot_vel_world = np.array([action[f"cart_vel{i+3}"] for i in range(3)])
-
-        # 转换为基坐标系中的速度（末端相对于基）
-        trans_vel = self.R_world_in_base @ trans_vel_world
-        rot_vel = self.R_world_in_base @ rot_vel_world
-
-        # 限制速度
-        trans_vel *= self.TRANS_MAX_VEL
-        rot_vel *= self.ROT_MAX_VEL
-
-        # Extract gripper state - 直接使用teleop processor已经转换好的gripper状态
-        # gripper_pos已经是夹爪开关状态（0=close, 1=open），不需要再次转换
-        gripper = action.get("gripper_pos")
-
-        return {
-            **{f"cart_vel{i}": float(trans_vel[i]) for i in range(3)},
-            **{f"cart_vel{i+3}": float(rot_vel[i]) for i in range(3)},
-            "gripper_pos": float(gripper),
-        }
+        """
+        将 cart_pos (end相对于ref) 转换为 end相对于base。
+        """
+        # 检查是否有 cart_pos 字段
+        if not all(f"cart_pos{i}" in action for i in range(6)):
+            return action
+        
+        cart_pos_ref = np.array([action[f"cart_pos{i}"] for i in range(6)], dtype=np.float64)
+        
+        # 使用缓存获取从 ref 到 base 的变换矩阵
+        T_base_ref, _ = self._transform_cache.get_base_ref_transform(
+            self.tool_ref_pos, self.base_frame_in_world
+        )
+        
+        # 使用统一的转换函数将 cart_pos_ref 转换为 cart_pos_base
+        cart_pos_base = transform_pose(cart_pos_ref, T_base_ref)
+        
+        # 更新 action 中的 cart_pos 为 end相对于base
+        result = dict(action)
+        for i in range(6):
+            result[f"cart_pos{i}"] = float(cart_pos_base[i])
+        
+        return result
 
     def transform_features(
         self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
     ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
-        # Remove all joint_pos features (they will be replaced by cart_vel)
-        # Iterate over a copy of keys to avoid modification during iteration
+        # 确保 cart_pos 特征存在（本 Processor 会转换 cart_pos）
         action_features = features[PipelineFeatureType.ACTION]
-        keys_to_remove = [key for key in action_features.keys() if key.startswith("joint_pos")]
-        for key in keys_to_remove:
-            action_features.pop(key, None)
+        for i in range(6):
+            action_features.setdefault(f"cart_pos{i}", float)
+        return features
+
+
+@ProcessorStepRegistry.register("cart_vel_ref_to_base")
+@dataclass
+class CartVelRefToBaseProcessor(RobotActionProcessorStep):
+    """
+    Processor for cart_vel callback mode: converts cart_vel from end-relative-to-ref 
+    to end-relative-to-base for robot control.
+    
+    This processor runs in robot_action_processor pipeline (before sending to robot).
+    The stored action still contains end-relative-to-ref, but the robot receives 
+    end-relative-to-base.
+    """
+    tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # ref 相对于 world
+    base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # base 相对于 world
+    
+    def __post_init__(self):
+        """初始化缓存对象"""
+        self._transform_cache = TransformCache()
+
+    def action(self, action: RobotAction) -> RobotAction:
+        """
+        将 cart_vel (end相对于ref) 转换为 end相对于base。
+        速度转换只需要旋转矩阵，不需要平移。
+        """
+        # 检查是否有 cart_vel 字段
+        if not all(f"cart_vel{i}" in action for i in range(6)):
+            return action
+        
+        cart_vel_ref = np.array([action[f"cart_vel{i}"] for i in range(6)], dtype=np.float64)
+        
+        # 使用缓存获取从 ref 到 base 的旋转矩阵
+        _, R_base_ref = self._transform_cache.get_base_ref_transform(
+            self.tool_ref_pos, self.base_frame_in_world
+        )
+        
+        # 使用统一的转换函数将 cart_vel_ref 转换为 cart_vel_base
+        cart_vel_base = transform_velocity(cart_vel_ref, R_base_ref)
+        
+        # 更新 action 中的 cart_vel 为 end相对于base
+        result = dict(action)
+        for i in range(6):
+            result[f"cart_vel{i}"] = float(cart_vel_base[i])
+        
+        return result
+
+    def transform_features(
+        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
+    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
+        # 确保 cart_vel 特征存在（本 Processor 会转换 cart_vel）
+        action_features = features[PipelineFeatureType.ACTION]
+        for i in range(6):
+            action_features.setdefault(f"cart_vel{i}", float)
+        return features
+
+
+@ProcessorStepRegistry.register("select_action_by_callback_mode")
+@dataclass
+class SelectActionByCallbackMode(RobotActionProcessorStep):
+    """
+    Processor that selects action fields based on callback mode.
+    For joint_pos mode: keeps joint_pos, removes cart_pos, cart_vel, psi
+    For cart_pos mode: keeps cart_pos, removes joint_pos, cart_vel, psi
+    For cart_vel mode: keeps cart_vel, removes joint_pos, cart_pos, psi
+    """
+    callback_mode: str = "joint_pos"  # "joint_pos", "cart_pos", or "cart_vel"
+    joint_num: int = 6
+
+    def action(self, action: RobotAction) -> RobotAction:
+        """
+        根据 callback_mode 选择发送给机器人的字段。
+        """
+        result = dict(action)
+        
+        if self.callback_mode == "joint_pos":
+            # joint_pos mode: 保留 joint_pos，移除 cart_pos, cart_vel, psi
+            for i in range(6):
+                result.pop(f"cart_pos{i}", None)
+                result.pop(f"cart_vel{i}", None)
+            result.pop("psi", None)
+        elif self.callback_mode == "cart_pos":
+            # cart_pos mode: 保留 cart_pos，移除 joint_pos, cart_vel, psi
+            for i in range(self.joint_num):
+                result.pop(f"joint_pos{i}", None)
+            for i in range(6):
+                result.pop(f"cart_vel{i}", None)
+            result.pop("psi", None)
+        elif self.callback_mode == "cart_vel":
+            # cart_vel mode: 保留 cart_vel，移除 joint_pos, cart_pos, psi
+            for i in range(self.joint_num):
+                result.pop(f"joint_pos{i}", None)
+            for i in range(6):
+                result.pop(f"cart_pos{i}", None)
+            result.pop("psi", None)
+        
+        return result
+
+    def transform_features(
+        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
+    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
+        # 根据 callback_mode 移除不需要的特征
+        action_features = features[PipelineFeatureType.ACTION]
+        
+        if self.callback_mode == "joint_pos":
+            # 移除 cart_pos, cart_vel, psi 特征
+            for i in range(6):
+                action_features.pop(f"cart_pos{i}", None)
+                action_features.pop(f"cart_vel{i}", None)
+            action_features.pop("psi", None)
+        elif self.callback_mode == "cart_pos":
+            # 移除 joint_pos, cart_vel, psi 特征
+            for i in range(self.joint_num):
+                action_features.pop(f"joint_pos{i}", None)
+            for i in range(6):
+                action_features.pop(f"cart_vel{i}", None)
+            action_features.pop("psi", None)
+        elif self.callback_mode == "cart_vel":
+            # 移除 joint_pos, cart_pos, psi 特征
+            for i in range(self.joint_num):
+                action_features.pop(f"joint_pos{i}", None)
+            for i in range(6):
+                action_features.pop(f"cart_pos{i}", None)
+            action_features.pop("psi", None)
+        
         return features

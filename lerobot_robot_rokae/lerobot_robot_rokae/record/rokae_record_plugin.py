@@ -10,25 +10,23 @@ from lerobot.processor.converters import (
 from lerobot.robots import Robot
 
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.rokae_processor import (
-    ExtractCartVelAndGripper,
+    CartPosRefToBaseProcessor,
+    CartVelRefToBaseProcessor,
+    SelectActionByCallbackMode,
 )
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.spacemouse.spacemouse_processor import (
-    GenerateJointPosCmd,
     InverseKinematicsProcessor,
 )
 
-try:
-    from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.bi_rokae_processor import (
-        ExtractBiCartVelAndGripper,
-    )
-    from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.bi_spacemouse.bi_spacemouse_processor import (
-        BiInverseKinematicsProcessor,
-        GenerateBiJointPosCmd,
-    )
-except ImportError:
-    ExtractBiCartVelAndGripper = None
-    BiInverseKinematicsProcessor = None
-    GenerateBiJointPosCmd = None
+
+from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.bi_rokae_processor import (
+    BiCartPosRefToBaseProcessor,
+    BiCartVelRefToBaseProcessor,
+    BiSelectActionByCallbackMode,
+)
+from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.bi_spacemouse.bi_spacemouse_processor import (
+    BiInverseKinematicsProcessor,
+)
 
 
 def _callback_mode_value(cb) -> Optional[str]:
@@ -53,86 +51,98 @@ def _make_bimanual_pipelines(
     right_cb = getattr(cfg.robot, "right_callback_mode", None)
     left_mode = _callback_mode_value(left_cb)
     right_mode = _callback_mode_value(right_cb)
-    left_joint_pos = left_mode == "joint_pos"
-    right_joint_pos = right_mode == "joint_pos"
+    
+    # 检查左右臂的 callback_mode 是否相同（通常应该相同）
+    if left_mode != right_mode:
+        raise ValueError(
+            f"Left and right arms must have the same callback_mode. "
+            f"Got left={left_mode}, right={right_mode}"
+        )
+    
+    cb_mode = left_mode  # 使用相同的 mode
+    
+    # 几何参数来自 BiRokaeRobot 内部的左右 RokaeRobot（它们在构造时已通过 ZMQ 读取）
+    left_arm = getattr(robot, "left_arm", None)
+    right_arm = getattr(robot, "right_arm", None)
+    left_tool_end_pos = getattr(left_arm, "tool_end_pos", None)
+    left_tool_ref_pos = getattr(left_arm, "tool_ref_pos", None)
+    left_base_frame_in_world = getattr(left_arm, "base_frame_in_world", None)
+    right_tool_end_pos = getattr(right_arm, "tool_end_pos", None)
+    right_tool_ref_pos = getattr(right_arm, "tool_ref_pos", None)
+    right_base_frame_in_world = getattr(right_arm, "base_frame_in_world", None)
+    
+    # 运动学参数
+    left_rbv = getattr(cfg.robot, "left_rbv", [])
+    right_rbv = getattr(cfg.robot, "right_rbv", [])
+    left_min_joint = getattr(cfg.robot, "left_min_joint", [])
+    left_max_joint = getattr(cfg.robot, "left_max_joint", [])
+    right_min_joint = getattr(cfg.robot, "right_min_joint", [])
+    right_max_joint = getattr(cfg.robot, "right_max_joint", [])
 
-    if left_joint_pos and right_joint_pos:
-        # joint_pos 模式需要 BiInverseKinematicsProcessor
-        if BiInverseKinematicsProcessor is None:
+    # 所有模式都使用相同的 BiInverseKinematicsProcessor
+    teleop_action_processor_steps = [
+        BiInverseKinematicsProcessor(
+            left_joint_num=left_joint_num,
+            right_joint_num=right_joint_num,
+            control_period=1.0 / cfg.dataset.fps,
+            trans_max_vel=0.1,
+            rot_max_vel=0.2,
+            left_rbv=left_rbv,
+            right_rbv=right_rbv,
+            left_min_joint=left_min_joint,
+            left_max_joint=left_max_joint,
+            right_min_joint=right_min_joint,
+            right_max_joint=right_max_joint,
+            left_tool_end_pos=left_tool_end_pos,
+            left_tool_ref_pos=left_tool_ref_pos,
+            left_base_frame_in_world=left_base_frame_in_world,
+            right_tool_end_pos=right_tool_end_pos,
+            right_tool_ref_pos=right_tool_ref_pos,
+            right_base_frame_in_world=right_base_frame_in_world,
+        )
+    ]
+
+    # 根据 callback_mode 配置不同的 robot_action_processor_steps
+    if cb_mode == "cart_vel":
+        if BiCartVelRefToBaseProcessor is None or BiSelectActionByCallbackMode is None:
             raise ImportError(
-                "BiInverseKinematicsProcessor not available for joint_pos mode. "
-                "Please ensure bi_spacemouse_processor is properly installed."
+                "Bimanual cart_vel processors not available. "
+                "Please ensure bi_rokae_processor is properly installed."
             )
-        # 双臂 joint_pos + rokae_algo IK
-        left_rbv = getattr(cfg.robot, "left_rbv", [])
-        right_rbv = getattr(cfg.robot, "right_rbv", [])
-        left_min_joint = getattr(cfg.robot, "left_min_joint", [])
-        left_max_joint = getattr(cfg.robot, "left_max_joint", [])
-        right_min_joint = getattr(cfg.robot, "right_min_joint", [])
-        right_max_joint = getattr(cfg.robot, "right_max_joint", [])
-
-        # 几何参数来自 BiRokaeRobot 内部的左右 RokaeRobot（它们在构造时已通过 ZMQ 读取）
-        left_arm = getattr(robot, "left_arm", None)
-        right_arm = getattr(robot, "right_arm", None)
-        left_tool_end_pos = getattr(left_arm, "tool_end_pos", None)
-        left_tool_ref_pos = getattr(left_arm, "tool_ref_pos", None)
-        left_base_frame_in_world = getattr(left_arm, "base_frame_in_world", None)
-        right_tool_end_pos = getattr(right_arm, "tool_end_pos", None)
-        right_tool_ref_pos = getattr(right_arm, "tool_ref_pos", None)
-        right_base_frame_in_world = getattr(right_arm, "base_frame_in_world", None)
-
-        teleop_action_processor = RobotProcessorPipeline[tuple[RobotAction, RobotObservation], RobotAction](
-            steps=[
-                BiInverseKinematicsProcessor(
-                    left_joint_num=left_joint_num,
-                    right_joint_num=right_joint_num,
-                    control_period=1.0 / cfg.dataset.fps,
-                    trans_max_vel=0.1,
-                    rot_max_vel=0.2,
-                    left_rbv=left_rbv,
-                    right_rbv=right_rbv,
-                    left_min_joint=left_min_joint,
-                    left_max_joint=left_max_joint,
-                    right_min_joint=right_min_joint,
-                    right_max_joint=right_max_joint,
-                    left_tool_end_pos=left_tool_end_pos,
-                    left_tool_ref_pos=left_tool_ref_pos,
-                    left_base_frame_in_world=left_base_frame_in_world,
-                    right_tool_end_pos=right_tool_end_pos,
-                    right_tool_ref_pos=right_tool_ref_pos,
-                    right_base_frame_in_world=right_base_frame_in_world,
-                ),
-            ],
-            to_transition=robot_action_observation_to_transition,
-            to_output=transition_to_robot_action,
-        )
-        robot_action_processor = RobotProcessorPipeline[tuple[RobotAction, RobotObservation], RobotAction](
-            steps=[],
-            to_transition=robot_action_observation_to_transition,
-            to_output=transition_to_robot_action,
-        )
-        return teleop_action_processor, robot_action_processor
-
-    # 双臂 cart_vel：复用 GenerateBiJointPosCmd + ExtractBiCartVelAndGripper
-    if ExtractBiCartVelAndGripper is None or GenerateBiJointPosCmd is None:
-        raise ImportError(
-            "Bimanual cart_vel processors not available. "
-            "Please ensure bi_rokae_processor is properly installed."
-        )
-    teleop_action_processor = RobotProcessorPipeline[tuple[RobotAction, RobotObservation], RobotAction](
-        steps=[
-            GenerateBiJointPosCmd(
-                left_joint_num=left_joint_num,
-                right_joint_num=right_joint_num,
-                initial_left_gripper_state=1,
-                initial_right_gripper_state=1,
+        robot_action_processor_steps = [
+            BiCartVelRefToBaseProcessor(
+                left_tool_ref_pos=left_tool_ref_pos,
+                left_base_frame_in_world=left_base_frame_in_world,
+                right_tool_ref_pos=right_tool_ref_pos,
+                right_base_frame_in_world=right_base_frame_in_world,
             ),
-        ],
+            BiSelectActionByCallbackMode(callback_mode="cart_vel", left_joint_num=left_joint_num, right_joint_num=right_joint_num),
+        ]
+    elif cb_mode == "cart_pos":
+        robot_action_processor_steps = [
+            BiCartPosRefToBaseProcessor(
+                left_tool_ref_pos=left_tool_ref_pos,
+                left_base_frame_in_world=left_base_frame_in_world,
+                right_tool_ref_pos=right_tool_ref_pos,
+                right_base_frame_in_world=right_base_frame_in_world,
+            ),
+            BiSelectActionByCallbackMode(callback_mode="cart_pos", left_joint_num=left_joint_num, right_joint_num=right_joint_num),
+        ]
+    elif cb_mode == "joint_pos":
+        robot_action_processor_steps = [
+            BiSelectActionByCallbackMode(callback_mode="joint_pos", left_joint_num=left_joint_num, right_joint_num=right_joint_num),
+        ]
+    else:
+        # 非 rokae 的 callback_mode，使用默认 processors
+        return None
+
+    teleop_action_processor = RobotProcessorPipeline[tuple[RobotAction, RobotObservation], RobotAction](
+        steps=teleop_action_processor_steps,
         to_transition=robot_action_observation_to_transition,
         to_output=transition_to_robot_action,
     )
     robot_action_processor = RobotProcessorPipeline[tuple[RobotAction, RobotObservation], RobotAction](
-        steps=[ExtractBiCartVelAndGripper()],
+        steps=robot_action_processor_steps,
         to_transition=robot_action_observation_to_transition,
         to_output=transition_to_robot_action,
     )
@@ -151,29 +161,43 @@ def _make_single_arm_pipelines(
     joint_num = getattr(cfg.robot, "joint_num")
     cb_mode = _callback_mode_value(getattr(cfg.robot, "callback_mode", None))
 
+    # 所有模式都使用相同的 InverseKinematicsProcessor
+    teleop_action_processor_steps = [
+        InverseKinematicsProcessor(
+            joint_num=joint_num,
+            control_period=1.0 / cfg.dataset.fps,
+            trans_max_vel=0.1,
+            rot_max_vel=0.2,
+            rbv=getattr(cfg.robot, "rbv", []),
+            min_joint=getattr(cfg.robot, "min_joint", []),
+            max_joint=getattr(cfg.robot, "max_joint", []),
+            tool_end_pos=getattr(robot, "tool_end_pos", None),
+            tool_ref_pos=getattr(robot, "tool_ref_pos", None),
+            base_frame_in_world=getattr(robot, "base_frame_in_world", None),
+        )
+    ]
+
+    # 根据 callback_mode 配置不同的 robot_action_processor_steps
     if cb_mode == "cart_vel":
-        teleop_action_processor_steps = [
-            GenerateJointPosCmd(joint_num=joint_num, initial_gripper_state=1),
-        ]
-        robot_action_processor_steps = [ExtractCartVelAndGripper()]
-    elif cb_mode == "cart_pos":
-        raise AssertionError("cart_pos is not supported for rokae_robot")
-    elif cb_mode == "joint_pos":
-        teleop_action_processor_steps = [
-            InverseKinematicsProcessor(
-                joint_num=joint_num,
-                control_period=1.0 / cfg.dataset.fps,
-                trans_max_vel=0.1,
-                rot_max_vel=0.2,
-                rbv=getattr(cfg.robot, "rbv", []),
-                min_joint=getattr(cfg.robot, "min_joint", []),
-                max_joint=getattr(cfg.robot, "max_joint", []),
-                tool_end_pos=getattr(robot, "tool_end_pos", None),
+        robot_action_processor_steps = [
+            CartVelRefToBaseProcessor(
                 tool_ref_pos=getattr(robot, "tool_ref_pos", None),
                 base_frame_in_world=getattr(robot, "base_frame_in_world", None),
-            )
+            ),
+            SelectActionByCallbackMode(callback_mode="cart_vel", joint_num=joint_num),
         ]
-        robot_action_processor_steps = []
+    elif cb_mode == "cart_pos":
+        robot_action_processor_steps = [
+            CartPosRefToBaseProcessor(
+                tool_ref_pos=getattr(robot, "tool_ref_pos", None),
+                base_frame_in_world=getattr(robot, "base_frame_in_world", None),
+            ),
+            SelectActionByCallbackMode(callback_mode="cart_pos", joint_num=joint_num),
+        ]
+    elif cb_mode == "joint_pos":
+        robot_action_processor_steps = [
+            SelectActionByCallbackMode(callback_mode="joint_pos", joint_num=joint_num),
+        ]
     else:
         # 非 rokae 的 callback_mode，使用默认 processors
         return None
@@ -235,19 +259,11 @@ def maybe_reset_rokae_processors(
 
     # 识别 rokae 的单臂 / 双臂 Processor（Generate* 或 IK）
     for step in teleop_action_processor.steps:
-        if BiInverseKinematicsProcessor is not None and isinstance(step, BiInverseKinematicsProcessor):
+        if isinstance(step, BiInverseKinematicsProcessor):
             processor_step = step
             is_bimanual = True
             break
-        if GenerateBiJointPosCmd is not None and isinstance(step, GenerateBiJointPosCmd):
-            processor_step = step
-            is_bimanual = True
-            break
-        if GenerateJointPosCmd is not None and isinstance(step, GenerateJointPosCmd):
-            processor_step = step
-            is_bimanual = False
-            break
-        if InverseKinematicsProcessor is not None and isinstance(step, InverseKinematicsProcessor):
+        if isinstance(step, InverseKinematicsProcessor):
             processor_step = step
             is_bimanual = False
             break

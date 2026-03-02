@@ -70,11 +70,21 @@ class BiRokaeRobot(Robot):
 
     @property
     def _left_robot_ft(self) -> dict[str, type]:
-        return {**{f"left_joint_pos{i}": float for i in range(self.cfg.left_joint_num)}, "left_gripper_pos": float}
+        return {
+            **{f"left_joint_pos{i}": float for i in range(self.cfg.left_joint_num)},
+            **{f"left_cart_pos{i}": float for i in range(6)},
+            "left_psi": float,
+            "left_gripper_pos": float
+        }
 
     @property
     def _right_robot_ft(self) -> dict[str, type]:
-        return {**{f"right_joint_pos{i}": float for i in range(self.cfg.right_joint_num)}, "right_gripper_pos": float}
+        return {
+            **{f"right_joint_pos{i}": float for i in range(self.cfg.right_joint_num)},
+            **{f"right_cart_pos{i}": float for i in range(6)},
+            "right_psi": float,
+            "right_gripper_pos": float
+        }
 
     @property
     def _cameras_ft(self) -> dict[str, tuple]:
