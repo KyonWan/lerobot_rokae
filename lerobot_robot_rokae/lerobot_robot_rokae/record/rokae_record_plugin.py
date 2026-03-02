@@ -4,12 +4,15 @@ from typing import Optional, Tuple
 
 from lerobot.processor import RobotAction, RobotObservation, RobotProcessorPipeline
 from lerobot.processor.converters import (
+    observation_to_transition,
     robot_action_observation_to_transition,
+    transition_to_observation,
     transition_to_robot_action,
 )
 from lerobot.robots import Robot
 
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.rokae_processor import (
+    CartPosBaseToRefObservationProcessor,
     CartPosRefToBaseProcessor,
     CartVelRefToBaseProcessor,
     SelectActionByCallbackMode,
@@ -20,6 +23,7 @@ from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.spacemouse.sp
 
 
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.bi_rokae_processor import (
+    BiCartPosBaseToRefObservationProcessor,
     BiCartPosRefToBaseProcessor,
     BiCartVelRefToBaseProcessor,
     BiSelectActionByCallbackMode,
@@ -39,11 +43,11 @@ def _callback_mode_value(cb) -> Optional[str]:
 def _make_bimanual_pipelines(
     cfg,
     robot: Robot,
-) -> Optional[Tuple[RobotProcessorPipeline, RobotProcessorPipeline]]:
+) -> Optional[Tuple[RobotProcessorPipeline, RobotProcessorPipeline, RobotProcessorPipeline]]:
     """
     为双臂 rokae 机器人创建 processor pipelines。
     
-    返回 (teleop_action_processor, robot_action_processor)，如果不支持则返回 None。
+    返回 (teleop_action_processor, robot_action_processor, robot_observation_processor)，如果不支持则返回 None。
     """
     left_joint_num = getattr(cfg.robot, "left_joint_num", 7)
     right_joint_num = getattr(cfg.robot, "right_joint_num", 7)
@@ -104,11 +108,6 @@ def _make_bimanual_pipelines(
 
     # 根据 callback_mode 配置不同的 robot_action_processor_steps
     if cb_mode == "cart_vel":
-        if BiCartVelRefToBaseProcessor is None or BiSelectActionByCallbackMode is None:
-            raise ImportError(
-                "Bimanual cart_vel processors not available. "
-                "Please ensure bi_rokae_processor is properly installed."
-            )
         robot_action_processor_steps = [
             BiCartVelRefToBaseProcessor(
                 left_tool_ref_pos=left_tool_ref_pos,
@@ -146,17 +145,31 @@ def _make_bimanual_pipelines(
         to_transition=robot_action_observation_to_transition,
         to_output=transition_to_robot_action,
     )
-    return teleop_action_processor, robot_action_processor
+    robot_observation_processor_steps = [
+        BiCartPosBaseToRefObservationProcessor(
+            left_tool_ref_pos=left_tool_ref_pos,
+            left_base_frame_in_world=left_base_frame_in_world,
+            right_tool_ref_pos=right_tool_ref_pos,
+            right_base_frame_in_world=right_base_frame_in_world,
+        )
+    ]
+    robot_observation_processor = RobotProcessorPipeline[RobotObservation, RobotObservation](
+        steps=robot_observation_processor_steps,
+        to_transition=observation_to_transition,
+        to_output=transition_to_observation,
+    )
+
+    return teleop_action_processor, robot_action_processor, robot_observation_processor
 
 
 def _make_single_arm_pipelines(
     cfg,
     robot: Robot,
-) -> Optional[Tuple[RobotProcessorPipeline, RobotProcessorPipeline]]:
+) -> Optional[Tuple[RobotProcessorPipeline, RobotProcessorPipeline, RobotProcessorPipeline]]:
     """
     为单臂 rokae 机器人创建 processor pipelines。
     
-    返回 (teleop_action_processor, robot_action_processor)，如果不支持则返回 None。
+    返回 (teleop_action_processor, robot_action_processor, robot_observation_processor)，如果不支持则返回 None。
     """
     joint_num = getattr(cfg.robot, "joint_num")
     cb_mode = _callback_mode_value(getattr(cfg.robot, "callback_mode", None))
@@ -212,7 +225,18 @@ def _make_single_arm_pipelines(
         to_transition=robot_action_observation_to_transition,
         to_output=transition_to_robot_action,
     )
-    return teleop_action_processor, robot_action_processor
+    robot_observation_processor_steps = [
+        CartPosBaseToRefObservationProcessor(
+            tool_ref_pos=getattr(robot, "tool_ref_pos", None),
+            base_frame_in_world=getattr(robot, "base_frame_in_world", None),
+        )
+    ]
+    robot_observation_processor = RobotProcessorPipeline[RobotObservation, RobotObservation](
+        steps=robot_observation_processor_steps,
+        to_transition=observation_to_transition,
+        to_output=transition_to_observation,
+    )
+    return teleop_action_processor, robot_action_processor, robot_observation_processor
 
 
 def maybe_make_rokae_pipelines(
@@ -221,16 +245,13 @@ def maybe_make_rokae_pipelines(
     teleop,
     default_teleop_action_processor: RobotProcessorPipeline,
     default_robot_action_processor: RobotProcessorPipeline,
-) -> Optional[Tuple[RobotProcessorPipeline, RobotProcessorPipeline]]:
+    default_robot_observation_processor: RobotProcessorPipeline,
+) -> Optional[Tuple[RobotProcessorPipeline, RobotProcessorPipeline, RobotProcessorPipeline]]:
     """
-    根据当前 cfg/robot/teleop，按 rokae 相关规则覆盖 teleop / robot action processor。
+    根据当前 cfg/robot/teleop，按 rokae 相关规则覆盖 teleop / robot action / robot observation processor。
 
     如果不是 rokae 相关场景，返回 None，调用方应继续使用默认 processor。
     """
-    # 只在 teleop 控制（无 policy）时覆盖
-    if getattr(cfg, "policy", None) is not None:
-        return None
-
     # 双臂：bi_spacemouse + bi_rokae_robot
     is_bimanual = (cfg.teleop is not None and cfg.teleop.type == "bi_spacemouse") or (
         cfg.robot.type == "bi_rokae_robot"
