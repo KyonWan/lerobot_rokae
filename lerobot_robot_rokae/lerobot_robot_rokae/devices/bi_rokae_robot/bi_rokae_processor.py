@@ -1,11 +1,12 @@
-from lerobot.processor.pipeline import RobotActionProcessorStep, ProcessorStepRegistry
-from lerobot.processor.core import RobotAction
+from lerobot.processor.pipeline import RobotActionProcessorStep, ObservationProcessorStep, ProcessorStepRegistry
+from lerobot.processor.core import RobotAction, RobotObservation
 from lerobot.configs.types import PipelineFeatureType, PolicyFeature
 from dataclasses import dataclass, field
 import numpy as np
 
 from lerobot_robot_rokae.lerobot_robot_rokae.utils.transform_utils import (
-    TransformCache,
+    compute_base_ref_transform,
+    inv_homogeneous,
     transform_pose,
     transform_velocity,
 )
@@ -28,11 +29,6 @@ class BiCartPosRefToBaseProcessor(RobotActionProcessorStep):
     left_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # left base 相对于 world
     right_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # right ref 相对于 world
     right_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # right base 相对于 world
-    
-    def __post_init__(self):
-        """初始化缓存对象"""
-        self._left_transform_cache = TransformCache()
-        self._right_transform_cache = TransformCache()
 
     def action(self, action: RobotAction) -> RobotAction:
         """
@@ -43,20 +39,20 @@ class BiCartPosRefToBaseProcessor(RobotActionProcessorStep):
         # 处理左臂
         if all(f"left_cart_pos{i}" in action for i in range(6)):
             left_cart_pos_ref = np.array([action[f"left_cart_pos{i}"] for i in range(6)], dtype=np.float64)
-            T_base_ref, _ = self._left_transform_cache.get_base_ref_transform(
+            T_ref_in_base, _ = compute_base_ref_transform(
                 self.left_tool_ref_pos, self.left_base_frame_in_world
             )
-            left_cart_pos_base = transform_pose(left_cart_pos_ref, T_base_ref)
+            left_cart_pos_base = transform_pose(left_cart_pos_ref, T_ref_in_base)
             for i in range(6):
                 result[f"left_cart_pos{i}"] = float(left_cart_pos_base[i])
         
         # 处理右臂
         if all(f"right_cart_pos{i}" in action for i in range(6)):
             right_cart_pos_ref = np.array([action[f"right_cart_pos{i}"] for i in range(6)], dtype=np.float64)
-            T_base_ref, _ = self._right_transform_cache.get_base_ref_transform(
+            T_ref_in_base, _ = compute_base_ref_transform(
                 self.right_tool_ref_pos, self.right_base_frame_in_world
             )
-            right_cart_pos_base = transform_pose(right_cart_pos_ref, T_base_ref)
+            right_cart_pos_base = transform_pose(right_cart_pos_ref, T_ref_in_base)
             for i in range(6):
                 result[f"right_cart_pos{i}"] = float(right_cart_pos_base[i])
         
@@ -90,11 +86,6 @@ class BiCartVelRefToBaseProcessor(RobotActionProcessorStep):
     left_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # left base 相对于 world
     right_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # right ref 相对于 world
     right_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # right base 相对于 world
-    
-    def __post_init__(self):
-        """初始化缓存对象"""
-        self._left_transform_cache = TransformCache()
-        self._right_transform_cache = TransformCache()
 
     def action(self, action: RobotAction) -> RobotAction:
         """
@@ -106,20 +97,20 @@ class BiCartVelRefToBaseProcessor(RobotActionProcessorStep):
         # 处理左臂
         if all(f"left_cart_vel{i}" in action for i in range(6)):
             left_cart_vel_ref = np.array([action[f"left_cart_vel{i}"] for i in range(6)], dtype=np.float64)
-            _, R_base_ref = self._left_transform_cache.get_base_ref_transform(
+            _, R_ref_in_base = compute_base_ref_transform(
                 self.left_tool_ref_pos, self.left_base_frame_in_world
             )
-            left_cart_vel_base = transform_velocity(left_cart_vel_ref, R_base_ref)
+            left_cart_vel_base = transform_velocity(left_cart_vel_ref, R_ref_in_base)
             for i in range(6):
                 result[f"left_cart_vel{i}"] = float(left_cart_vel_base[i])
         
         # 处理右臂
         if all(f"right_cart_vel{i}" in action for i in range(6)):
             right_cart_vel_ref = np.array([action[f"right_cart_vel{i}"] for i in range(6)], dtype=np.float64)
-            _, R_base_ref = self._right_transform_cache.get_base_ref_transform(
+            _, R_ref_in_base = compute_base_ref_transform(
                 self.right_tool_ref_pos, self.right_base_frame_in_world
             )
-            right_cart_vel_base = transform_velocity(right_cart_vel_ref, R_base_ref)
+            right_cart_vel_base = transform_velocity(right_cart_vel_ref, R_ref_in_base)
             for i in range(6):
                 result[f"right_cart_vel{i}"] = float(right_cart_vel_base[i])
         
@@ -231,4 +222,73 @@ class BiSelectActionByCallbackMode(RobotActionProcessorStep):
         
         return features
 
+
+@ProcessorStepRegistry.register("bi_cart_pos_base_to_ref_observation")
+@dataclass
+class BiCartPosBaseToRefObservationProcessor(ObservationProcessorStep):
+    """
+    Processor for bimanual observation: converts cart_pos from end-relative-to-base
+    to end-relative-to-ref for dataset recording.
+
+    This processor runs in robot_observation_processor pipeline.
+    The robot provides end-relative-to-base, but we want to store end-relative-to-ref.
+
+    Left and right arms have independent tool_ref_pos and base_frame_in_world configurations.
+    """
+    left_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # left ref 相对于 world
+    left_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # left base 相对于 world
+    right_tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # right ref 相对于 world
+    right_base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # right base 相对于 world
+
+    def observation(self, observation: RobotObservation) -> RobotObservation:
+        """
+        将左右臂的 cart_pos (end相对于base) 转换为 end相对于ref。
+        """
+        result = dict(observation)
+
+        # 处理左臂
+        if all(f"left_cart_pos{i}" in observation for i in range(6)):
+            left_cart_pos_end_in_base = np.array([observation[f"left_cart_pos{i}"] for i in range(6)], dtype=np.float64)
+
+            # 计算 ref 相对于 base 的变换矩阵
+            T_ref_in_base, _ = compute_base_ref_transform(
+                self.left_tool_ref_pos, self.left_base_frame_in_world
+            )
+            # 计算 base 相对于 ref 的变换矩阵
+            T_base_in_ref = inv_homogeneous(T_ref_in_base)
+
+            # 使用统一的转换函数将 cart_pos_end_in_base 转换为 cart_pos_end_in_ref
+            left_cart_pos_end_in_ref = transform_pose(left_cart_pos_end_in_base, T_base_in_ref)
+
+            for i in range(6):
+                result[f"left_cart_pos{i}"] = float(left_cart_pos_end_in_ref[i])
+
+        # 处理右臂
+        if all(f"right_cart_pos{i}" in observation for i in range(6)):
+            right_cart_pos_end_in_base = np.array([observation[f"right_cart_pos{i}"] for i in range(6)], dtype=np.float64)
+
+            # 计算 ref 相对于 base 的变换矩阵
+            T_ref_in_base, _ = compute_base_ref_transform(
+                self.right_tool_ref_pos, self.right_base_frame_in_world
+            )
+            # 计算 base 相对于 ref 的变换矩阵
+            T_base_in_ref = inv_homogeneous(T_ref_in_base)
+
+            # 使用统一的转换函数将 cart_pos_end_in_base 转换为 cart_pos_end_in_ref
+            right_cart_pos_end_in_ref = transform_pose(right_cart_pos_end_in_base, T_base_in_ref)
+
+            for i in range(6):
+                result[f"right_cart_pos{i}"] = float(right_cart_pos_end_in_ref[i])
+
+        return result
+
+    def transform_features(
+        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
+    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
+        # 确保 cart_pos 特征存在（本 Processor 会转换 cart_pos）
+        observation_features = features[PipelineFeatureType.OBSERVATION]
+        for i in range(6):
+            observation_features.setdefault(f"left_cart_pos{i}", float)
+            observation_features.setdefault(f"right_cart_pos{i}", float)
+        return features
 

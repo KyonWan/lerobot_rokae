@@ -1,5 +1,5 @@
 from lerobot.processor.pipeline import RobotActionProcessorStep, ObservationProcessorStep, PolicyActionProcessorStep, ProcessorStepRegistry
-from lerobot.processor.core import EnvAction, EnvTransition, PolicyAction, RobotAction, TransitionKey
+from lerobot.processor.core import EnvAction, EnvTransition, PolicyAction, RobotAction, RobotObservation, TransitionKey
 from lerobot.configs.types import PipelineFeatureType, PolicyFeature, FeatureType
 from lerobot.utils.constants import OBS_STATE, ACTION
 from dataclasses import dataclass, field
@@ -7,7 +7,8 @@ from typing import Any
 import numpy as np
 
 from lerobot_robot_rokae.lerobot_robot_rokae.utils.transform_utils import (
-    TransformCache,
+    compute_base_ref_transform,
+    inv_homogeneous,
     transform_pose,
     transform_velocity,
 )
@@ -25,10 +26,6 @@ class CartPosRefToBaseProcessor(RobotActionProcessorStep):
     """
     tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # ref 相对于 world
     base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # base 相对于 world
-    
-    def __post_init__(self):
-        """初始化缓存对象"""
-        self._transform_cache = TransformCache()
 
     def action(self, action: RobotAction) -> RobotAction:
         """
@@ -40,13 +37,13 @@ class CartPosRefToBaseProcessor(RobotActionProcessorStep):
         
         cart_pos_ref = np.array([action[f"cart_pos{i}"] for i in range(6)], dtype=np.float64)
         
-        # 使用缓存获取从 ref 到 base 的变换矩阵
-        T_base_ref, _ = self._transform_cache.get_base_ref_transform(
+        # 计算 ref 相对于 base 的变换矩阵
+        T_ref_in_base, _ = compute_base_ref_transform(
             self.tool_ref_pos, self.base_frame_in_world
         )
         
         # 使用统一的转换函数将 cart_pos_ref 转换为 cart_pos_base
-        cart_pos_base = transform_pose(cart_pos_ref, T_base_ref)
+        cart_pos_base = transform_pose(cart_pos_ref, T_ref_in_base)
         
         # 更新 action 中的 cart_pos 为 end相对于base
         result = dict(action)
@@ -78,10 +75,6 @@ class CartVelRefToBaseProcessor(RobotActionProcessorStep):
     """
     tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # ref 相对于 world
     base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # base 相对于 world
-    
-    def __post_init__(self):
-        """初始化缓存对象"""
-        self._transform_cache = TransformCache()
 
     def action(self, action: RobotAction) -> RobotAction:
         """
@@ -94,13 +87,13 @@ class CartVelRefToBaseProcessor(RobotActionProcessorStep):
         
         cart_vel_ref = np.array([action[f"cart_vel{i}"] for i in range(6)], dtype=np.float64)
         
-        # 使用缓存获取从 ref 到 base 的旋转矩阵
-        _, R_base_ref = self._transform_cache.get_base_ref_transform(
+        # 计算 ref 相对于 base 的旋转矩阵
+        _, R_ref_in_base = compute_base_ref_transform(
             self.tool_ref_pos, self.base_frame_in_world
         )
         
         # 使用统一的转换函数将 cart_vel_ref 转换为 cart_vel_base
-        cart_vel_base = transform_velocity(cart_vel_ref, R_base_ref)
+        cart_vel_base = transform_velocity(cart_vel_ref, R_ref_in_base)
         
         # 更新 action 中的 cart_vel 为 end相对于base
         result = dict(action)
@@ -187,4 +180,54 @@ class SelectActionByCallbackMode(RobotActionProcessorStep):
                 action_features.pop(f"cart_pos{i}", None)
             action_features.pop("psi", None)
         
+        return features
+
+
+@ProcessorStepRegistry.register("cart_pos_base_to_ref_observation")
+@dataclass
+class CartPosBaseToRefObservationProcessor(ObservationProcessorStep):
+    """
+    Processor for observation: converts cart_pos from end-relative-to-base
+    to end-relative-to-ref for dataset recording.
+
+    This processor runs in robot_observation_processor pipeline.
+    The robot provides end-relative-to-base, but we want to store end-relative-to-ref.
+    """
+    tool_ref_pos: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))   # ref 相对于 world
+    base_frame_in_world: np.ndarray = field(default_factory=lambda: np.zeros(6, dtype=np.float64))  # base 相对于 world
+
+    def observation(self, observation: RobotObservation) -> RobotObservation:
+        """
+        将 cart_pos (end相对于base) 转换为 end相对于ref。
+        """
+        # 检查是否有 cart_pos 字段
+        if not all(f"cart_pos{i}" in observation for i in range(6)):
+            return observation
+
+        cart_pos_end_in_base = np.array([observation[f"cart_pos{i}"] for i in range(6)], dtype=np.float64)
+
+        # 计算 ref 相对于 base 的变换矩阵
+        T_ref_in_base, _ = compute_base_ref_transform(
+            self.tool_ref_pos, self.base_frame_in_world
+        )
+        # 计算 base 相对于 ref 的变换矩阵
+        T_base_in_ref = inv_homogeneous(T_ref_in_base)
+
+        # 使用统一的转换函数将 cart_pos_end_in_base 转换为 cart_pos_end_in_ref
+        cart_pos_end_in_ref = transform_pose(cart_pos_end_in_base, T_base_in_ref)
+
+        # 更新 observation 中的 cart_pos 为 end相对于ref
+        result = dict(observation)
+        for i in range(6):
+            result[f"cart_pos{i}"] = float(cart_pos_end_in_ref[i])
+
+        return result
+
+    def transform_features(
+        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
+    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
+        # 确保 cart_pos 特征存在（本 Processor 会转换 cart_pos）
+        observation_features = features[PipelineFeatureType.OBSERVATION]
+        for i in range(6):
+            observation_features.setdefault(f"cart_pos{i}", float)
         return features
