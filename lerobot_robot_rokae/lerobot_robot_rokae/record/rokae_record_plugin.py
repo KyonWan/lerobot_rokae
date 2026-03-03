@@ -31,6 +31,9 @@ from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.bi_rokae_pro
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.bi_spacemouse.bi_spacemouse_processor import (
     BiInverseKinematicsProcessor,
 )
+from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico.pico_processor import (
+    PicoBiInverseKinematicsProcessor,
+)
 
 
 def _callback_mode_value(cb) -> Optional[str]:
@@ -46,6 +49,7 @@ def _make_bimanual_pipelines(
 ) -> Optional[Tuple[RobotProcessorPipeline, RobotProcessorPipeline, RobotProcessorPipeline]]:
     """
     为双臂 rokae 机器人创建 processor pipelines。
+    支持双 spacemouse 和 pico。
     
     返回 (teleop_action_processor, robot_action_processor, robot_observation_processor)，如果不支持则返回 None。
     """
@@ -83,31 +87,57 @@ def _make_bimanual_pipelines(
     right_min_joint = getattr(cfg.robot, "right_min_joint", [])
     right_max_joint = getattr(cfg.robot, "right_max_joint", [])
 
-    # 所有模式都使用相同的 BiInverseKinematicsProcessor
-    teleop_action_processor_steps = [
-        BiInverseKinematicsProcessor(
-            left_joint_num=left_joint_num,
-            right_joint_num=right_joint_num,
-            control_period=1.0 / cfg.dataset.fps,
-            trans_max_vel=0.1,
-            rot_max_vel=0.2,
-            left_rbv=left_rbv,
-            right_rbv=right_rbv,
-            left_min_joint=left_min_joint,
-            left_max_joint=left_max_joint,
-            right_min_joint=right_min_joint,
-            right_max_joint=right_max_joint,
-            left_tool_end_pos=left_tool_end_pos,
-            left_tool_ref_pos=left_tool_ref_pos,
-            left_base_frame_in_world=left_base_frame_in_world,
-            right_tool_end_pos=right_tool_end_pos,
-            right_tool_ref_pos=right_tool_ref_pos,
-            right_base_frame_in_world=right_base_frame_in_world,
-        )
-    ]
+    if cfg.teleop.type == "bi_spacemouse":
+        # 所有模式都使用相同的 BiInverseKinematicsProcessor
+        teleop_action_processor_steps = [
+            BiInverseKinematicsProcessor(
+                left_joint_num=left_joint_num,
+                right_joint_num=right_joint_num,
+                control_period=1.0 / cfg.dataset.fps,
+                trans_max_vel=0.1,
+                rot_max_vel=0.2,
+                left_rbv=left_rbv,
+                right_rbv=right_rbv,
+                left_min_joint=left_min_joint,
+                left_max_joint=left_max_joint,
+                right_min_joint=right_min_joint,
+                right_max_joint=right_max_joint,
+                left_tool_end_pos=left_tool_end_pos,
+                left_tool_ref_pos=left_tool_ref_pos,
+                left_base_frame_in_world=left_base_frame_in_world,
+                right_tool_end_pos=right_tool_end_pos,
+                right_tool_ref_pos=right_tool_ref_pos,
+                right_base_frame_in_world=right_base_frame_in_world,
+            )
+        ]
+    elif cfg.teleop.type == "pico":
+        # 所有模式都使用相同的 PicoBiInverseKinematicsProcessor
+        teleop_action_processor_steps = [
+            PicoBiInverseKinematicsProcessor(
+                left_joint_num=left_joint_num,
+                right_joint_num=right_joint_num,
+                left_rbv=left_rbv,
+                right_rbv=right_rbv,
+                left_min_joint=left_min_joint,
+                left_max_joint=left_max_joint,
+                right_min_joint=right_min_joint,
+                right_max_joint=right_max_joint,
+                left_tool_end_pos=left_tool_end_pos,
+                left_tool_ref_pos=left_tool_ref_pos,
+                left_base_frame_in_world=left_base_frame_in_world,
+                right_tool_end_pos=right_tool_end_pos,
+                right_tool_ref_pos=right_tool_ref_pos,
+                right_base_frame_in_world=right_base_frame_in_world,
+            )
+        ]
+    else:
+        raise ValueError(f"Unsupported teleop type: {cfg.teleop.type}")
 
     # 根据 callback_mode 配置不同的 robot_action_processor_steps
     if cb_mode == "cart_vel":
+        # pico 不支持 cart_vel
+        if cfg.teleop.type == "pico":
+            raise ValueError(f"cart_vel is not supported for pico")
         robot_action_processor_steps = [
             BiCartVelRefToBaseProcessor(
                 left_tool_ref_pos=left_tool_ref_pos,
@@ -238,7 +268,7 @@ def _make_single_arm_pipelines(
     )
     return teleop_action_processor, robot_action_processor, robot_observation_processor
 
-
+# TODO：支持 pico 
 def maybe_make_rokae_pipelines(
     cfg,
     robot: Robot,
@@ -253,7 +283,7 @@ def maybe_make_rokae_pipelines(
     如果不是 rokae 相关场景，返回 None，调用方应继续使用默认 processor。
     """
     # 双臂：bi_spacemouse + bi_rokae_robot
-    is_bimanual = (cfg.teleop is not None and cfg.teleop.type == "bi_spacemouse") or (
+    is_bimanual = (cfg.teleop is not None and (cfg.teleop.type == "bi_spacemouse" or cfg.teleop.type == "pico")) or (
         cfg.robot.type == "bi_rokae_robot"
     )
     if is_bimanual:
@@ -281,6 +311,10 @@ def maybe_reset_rokae_processors(
     # 识别 rokae 的单臂 / 双臂 Processor（Generate* 或 IK）
     for step in teleop_action_processor.steps:
         if isinstance(step, BiInverseKinematicsProcessor):
+            processor_step = step
+            is_bimanual = True
+            break
+        if isinstance(step, PicoBiInverseKinematicsProcessor):
             processor_step = step
             is_bimanual = True
             break
