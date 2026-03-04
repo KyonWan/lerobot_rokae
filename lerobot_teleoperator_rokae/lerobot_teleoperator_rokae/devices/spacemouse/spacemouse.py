@@ -2,6 +2,7 @@ from lerobot.teleoperators.teleoperator import Teleoperator
 from .config_spacemouse import SpacemouseConfig
 from .spacemouse_expert import SpaceMouseExpert
 from typing import Any
+import numpy as np
 
 class Spacemouse(Teleoperator):
     config_class = SpacemouseConfig
@@ -11,7 +12,7 @@ class Spacemouse(Teleoperator):
         super().__init__(config)
         self.config = config
         device_index = getattr(config, 'device_index', None)
-        self.space_mouse_expert = SpaceMouseExpert(device_index=device_index)
+        # self.space_mouse_expert = SpaceMouseExpert(device_index=device_index)
     
     @property
     def action_features(self) -> dict:
@@ -39,8 +40,10 @@ class Spacemouse(Teleoperator):
         pass
 
     def get_action(self) -> dict[str, Any]:
-        cart_vels, buttons = self.space_mouse_expert.get_action()
-        cart_vels = cart_vels.tolist()
+        # cart_vels, buttons = self.space_mouse_expert.get_action()
+        # cart_vels = cart_vels.tolist()
+        cart_vels = np.array([0.0, 0.0, 0.001, 0.0, 0.0, 0.0])
+        buttons = [0, 0]
         return {**{f"cart_vel{i}":cart_vels[i] for i in range(6)}, "buttons": buttons}
     
     def send_feedback(self, feedback: dict[str, Any]) -> None:

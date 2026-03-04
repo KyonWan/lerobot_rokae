@@ -114,6 +114,13 @@ python -m lerobot.scripts.lerobot_record \
   --display_data=true
 ```
 
+**常用可选参数**：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--display_data` | 是否在 Rerun 中显示采集数据 | `false` |
+| `--log_slow_loop_periodically` | 是否每秒打印一次控制循环耗时（用于监控帧率稳定性） | `false` |
+
 **添加相机支持**（可选）：
 
 ```bash

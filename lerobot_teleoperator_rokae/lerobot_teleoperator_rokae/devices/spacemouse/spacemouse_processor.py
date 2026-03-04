@@ -88,10 +88,11 @@ class InverseKinematicsProcessor(ProcessorStep):
     - 7 轴：cross_wrist7_init(rbv, min_joint, max_joint)，正解 cross_wrist7_jnt2cart，逆解 cross_wrist7_cart2jnt_nearest。
     - rbv、min_joint、max_joint 在 rokae 配置中按 list 配置。
     """
+    # 速度上限由上层（例如 rokae_record_plugin 或 teleop config）显式配置，无默认值，必须放最前
+    trans_max_vel: float  # m/s
+    rot_max_vel: float    # rad/s
     joint_num: int = 6
     control_period: float = 1.0 / 30  # 控制周期，秒
-    trans_max_vel: float = 0.1  # m/s
-    rot_max_vel: float = 0.2    # rad/s
     initial_gripper_state: int = 1  # 初始夹爪状态（0=close, 1=open），在 episode 开始前设置
     rbv: list[float] = field(default_factory=list)           # 机器人描述参数（RD），用于 cr_init / cross_wrist7_init
     min_joint: list[float] = field(default_factory=list)     # 关节下限（弧度）

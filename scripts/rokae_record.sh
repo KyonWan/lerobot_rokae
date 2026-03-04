@@ -24,8 +24,8 @@ python -m lerobot.scripts.lerobot_record \
     --robot.type=rokae_robot \
     --robot.zmq_port=5555 \
     --robot.joint_num=7 \
-    --robot.control_mode=joint_position \
-    --robot.callback_mode=joint_pos \
+    --robot.control_mode=cartesian_position \
+    --robot.callback_mode=cart_vel \
     --robot.rbv="$RBV_M" \
     --robot.min_joint="$MIN_JOINT_RAD" \
     --robot.max_joint="$MAX_JOINT_RAD" \
