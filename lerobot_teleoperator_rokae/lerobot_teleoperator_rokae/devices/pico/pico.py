@@ -59,7 +59,7 @@ class Pico(Teleoperator):
     """
 
     config_class = PicoConfig
-    name = "Pico"
+    name = "pico"
 
     # ---------- 2. Pico 类初始化：创建 XR 客户端、状态缓存、坐标系变换与调试记录容器 ----------
     def __init__(self, config: PicoConfig):
@@ -124,6 +124,22 @@ class Pico(Teleoperator):
         # Check completed
         self._is_connected = True
         logger.info(f"[INFO] {self.name} env initialization completed successfully.\n")
+
+    def reset_for_new_episode(self) -> None:
+        """Clear accumulated delta targets to avoid replaying previous episode pose."""
+        for arm_name in self.manipulator_config.keys():
+            self.current_delta_xyz[arm_name] = np.zeros(3)
+            self.current_delta_rot[arm_name] = np.zeros(3)
+            self.base_delta_xyz[arm_name] = np.zeros(3)
+            self.base_delta_rot[arm_name] = np.zeros(3)
+            self.init_controller_xyz[arm_name] = None
+            self.init_controller_quat[arm_name] = None
+            self.was_active[arm_name] = False
+
+        self._last_left_trigger_val = self.cfg.open_position
+        self._last_right_trigger_val = self.cfg.open_position
+        self.left_gripper_pos = self.cfg.open_position
+        self.right_gripper_pos = self.cfg.open_position
 
     def _start_pose_update(self):
         """Update pose deltas from XR client in a separate thread."""

@@ -6,7 +6,7 @@ LeRobot 框架的 Rokae 机器人集成，支持数据采集、训练和部署�
 
 - `lerobot/` - LeRobot 核心框架
 - `lerobot_robot_rokae/` - Rokae 机器人设备集成
-- `lerobot_teleoperator_rokae/` - SpaceMouse 遥操作设备集成
+- `lerobot_teleoperator_rokae/` - SpaceMouse 和 Pico 遥操作设备集成
 - `rokae_python_wrapper/` - Rokae Python SDK 封装（Git 子模块）
 
 ## 安装
@@ -64,6 +64,9 @@ cd rokae_python_wrapper
 pip install -e .
 cd ..
 ```
+### 6. 安装 XRoboToolkit PC （仅当使用 Pico 遥操作时需要）
+
+参照[双臂机器人使用说明](BI_ROKAE_README.md)中“使用前准备”小节的“安装 XRoboToolkit PC 并连接 Pico 设备”，在控制机械臂的电脑端安装 XRoboToolkit-PC-Service ，在头显上安装 XR app
 
 ## 数据采集
 
@@ -102,10 +105,44 @@ python -m rokae_python_wrapper.rokae_zmq_server \
 
 #### 3. 启动数据采集
 
+**使用 SpaceMouse 进行单臂数据采集：**
+
+使用 `scripts/rokae_record.sh` 脚本进行数据采集：
+
+```bash
+chmod +x scripts/rokae_record.sh
+./scripts/rokae_record.sh
+```
+
+或者直接使用命令行：
+
 ```bash
 python -m lerobot.scripts.lerobot_record \
   --robot.type=rokae_robot \
   --teleop.type=spacemouse \
+  --dataset.repo_id=Rokae/lerobot_test_1 \
+  --dataset.root="./datasets" \
+  --dataset.num_episodes=2 \
+  --dataset.single_task="Grab the cube" \
+  --dataset.push_to_hub=False \
+  --display_data=true
+```
+
+**使用 Pico 进行单臂数据采集：**
+
+使用 `scripts/pico_single_rokae_record.sh` 脚本进行数据采集：
+
+```bash
+chmod +x scripts/pico_single_rokae_record.sh
+./scripts/pico_single_rokae_record.sh
+```
+
+或者直接使用命令行：
+
+```bash
+python -m lerobot.scripts.lerobot_record \
+  --robot.type=rokae_robot \
+  --teleop.type=pico_single \
   --dataset.repo_id=Rokae/lerobot_test_1 \
   --dataset.root="./datasets" \
   --dataset.num_episodes=2 \
@@ -146,7 +183,7 @@ lerobot-dataset-viz \
 
 ## 双臂机器人支持
 
-本项目支持使用两个 SpaceMouse 同时控制两个 Rokae 单臂机器人，实现双臂遥操作数据采集。
+本项目支持使用两个 SpaceMouse 和 Pico 同时控制两个 Rokae 单臂机器人，实现双臂遥操作数据采集。
 
 详见：[双臂机器人使用说明](BI_ROKAE_README.md)
 

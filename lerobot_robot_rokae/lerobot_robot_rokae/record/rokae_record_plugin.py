@@ -34,6 +34,9 @@ from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.bi_spacemouse
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico.pico_processor import (
     PicoBiInverseKinematicsProcessor,
 )
+from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico_single.pico_single_processor import (
+    PicoSingleInverseKinematicsProcessor,
+)
 
 
 def _callback_mode_value(cb) -> Optional[str]:
@@ -204,24 +207,41 @@ def _make_single_arm_pipelines(
     joint_num = getattr(cfg.robot, "joint_num")
     cb_mode = _callback_mode_value(getattr(cfg.robot, "callback_mode", None))
 
-    # 所有模式都使用相同的 InverseKinematicsProcessor
-    teleop_action_processor_steps = [
-        InverseKinematicsProcessor(
-            joint_num=joint_num,
-            control_period=1.0 / cfg.dataset.fps,
-            trans_max_vel=0.1,
-            rot_max_vel=0.2,
-            rbv=getattr(cfg.robot, "rbv", []),
-            min_joint=getattr(cfg.robot, "min_joint", []),
-            max_joint=getattr(cfg.robot, "max_joint", []),
-            tool_end_pos=getattr(robot, "tool_end_pos", None),
-            tool_ref_pos=getattr(robot, "tool_ref_pos", None),
-            base_frame_in_world=getattr(robot, "base_frame_in_world", None),
-        )
-    ]
+    if cfg.teleop.type == "spacemouse":
+        teleop_action_processor_steps = [
+            InverseKinematicsProcessor(
+                joint_num=joint_num,
+                control_period=1.0 / cfg.dataset.fps,
+                trans_max_vel=0.1,
+                rot_max_vel=0.2,
+                rbv=getattr(cfg.robot, "rbv", []),
+                min_joint=getattr(cfg.robot, "min_joint", []),
+                max_joint=getattr(cfg.robot, "max_joint", []),
+                tool_end_pos=getattr(robot, "tool_end_pos", None),
+                tool_ref_pos=getattr(robot, "tool_ref_pos", None),
+                base_frame_in_world=getattr(robot, "base_frame_in_world", None),
+            )
+        ]
+    elif cfg.teleop.type == "pico_single":
+        teleop_action_processor_steps = [
+            PicoSingleInverseKinematicsProcessor(
+                joint_num=joint_num,
+                rbv=getattr(cfg.robot, "rbv", []),
+                min_joint=getattr(cfg.robot, "min_joint", []),
+                max_joint=getattr(cfg.robot, "max_joint", []),
+                tool_end_pos=getattr(robot, "tool_end_pos", None),
+                tool_ref_pos=getattr(robot, "tool_ref_pos", None),
+                base_frame_in_world=getattr(robot, "base_frame_in_world", None),
+            )
+        ]
+    else:
+        raise ValueError(f"Unsupported single-arm teleop type: {cfg.teleop.type}")
 
     # 根据 callback_mode 配置不同的 robot_action_processor_steps
     if cb_mode == "cart_vel":
+        # pico_single 不支持 cart_vel
+        if cfg.teleop.type == "pico_single":
+            raise ValueError("cart_vel is not supported for pico_single")
         robot_action_processor_steps = [
             CartVelRefToBaseProcessor(
                 tool_ref_pos=getattr(robot, "tool_ref_pos", None),
@@ -322,6 +342,10 @@ def maybe_reset_rokae_processors(
             processor_step = step
             is_bimanual = False
             break
+        if isinstance(step, PicoSingleInverseKinematicsProcessor):
+            processor_step = step
+            is_bimanual = False
+            break
 
     if processor_step is None:
         return False
@@ -389,8 +413,16 @@ def reset_robot_and_grippers(
         except Exception as e:
             logging.warning(f"Failed to reset robot position: {e}")
 
-    # Reset gripper states for spacemouse systems (both single arm and bimanual)
-    if teleop is not None and getattr(teleop, "name", None) in ("spacemouse", "bi_spacemouse"):
+    # Reset teleop internal accumulation buffers; otherwise the next control frame
+    # may replay previous episode deltas and pull the robot away from drag pose.
+    if teleop is not None and hasattr(teleop, "reset_for_new_episode"):
+        try:
+            teleop.reset_for_new_episode()
+        except Exception as e:
+            logging.warning(f"Failed to reset teleop state for new episode: {e}")
+
+    # Reset gripper states for supported teleop systems
+    if teleop is not None and getattr(teleop, "name", None) in ("spacemouse", "bi_spacemouse", "pico_single", "pico"):
         reset_gripper_states(robot, teleop_action_processor)
 
 
