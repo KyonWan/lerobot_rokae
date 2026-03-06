@@ -265,14 +265,17 @@ lerobot_teleoperator_rokae/
   └── lerobot_teleoperator_rokae/
       └── devices/
           ├── spacemouse/          # 单SpaceMouse（已修改支持设备索引）
+          ├── pico_single/         # Pico 单臂遥操作（新增）
           ├── bi_spacemouse/       # 双SpaceMouse（新增）
               ├── __init__.py
               ├── config_bi_spacemouse.py
+              ├── bi_spacemouse_processor.py
               └── bi_spacemouse.py
-          ├── pico/                # Pico 双臂遥操作（新增）
-          │   ├── __init__.py
-          │   ├── config_pico.py
-          │   └── pico.py
+          └── pico/                # Pico 双臂遥操作（新增）
+              ├── __init__.py
+              ├── config_pico.py
+              ├── pico_processor.py
+              └── pico.py
 
 lerobot_robot_rokae/
   └── lerobot_robot_rokae/
