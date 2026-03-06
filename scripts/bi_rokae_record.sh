@@ -43,9 +43,9 @@ python -m lerobot.scripts.lerobot_record \
     --robot.left_joint_num=7 \
     --robot.right_joint_num=7 \
     --robot.left_control_mode=cartesian_position \
-    --robot.left_callback_mode=cart_vel \
+    --robot.left_callback_mode=cart_pos \
     --robot.right_control_mode=cartesian_position \
-    --robot.right_callback_mode=cart_vel \
+    --robot.right_callback_mode=cart_pos \
     --robot.left_rbv="$LEFT_RBV_M" \
     --robot.left_min_joint="$LEFT_MIN_JOINT_RAD" \
     --robot.left_max_joint="$LEFT_MAX_JOINT_RAD" \
