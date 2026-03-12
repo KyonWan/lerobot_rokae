@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional, Tuple
 
 from lerobot.processor import RobotAction, RobotObservation, RobotProcessorPipeline
@@ -44,6 +45,35 @@ def _callback_mode_value(cb) -> Optional[str]:
     if cb is None:
         return None
     return getattr(cb, "value", cb)
+
+
+def _warn_if_rokae_vel_limits_exceeded(
+    trans_max_vel: float,
+    rot_max_vel: float,
+    processor_name: str,
+) -> None:
+    """
+    在采集时检查上层 processor 设定的最大笛卡尔速度是否比底层 RokaeServer 更宽松。
+    若超出，则打印 warning，但不中断录制。
+    """
+    try:
+        from rokae_python_wrapper.rokae_server import RokaeServer  # type: ignore
+
+        if trans_max_vel > RokaeServer.MAX_LINEAR_VEL or rot_max_vel > RokaeServer.MAX_ANGULAR_VEL:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "%s velocity limits (trans_max_vel=%.3f m/s, rot_max_vel=%.3f rad/s) "
+                "are more permissive than RokaeServer limits (MAX_LINEAR_VEL=%.3f m/s, MAX_ANGULAR_VEL=%.3f rad/s). "
+                "During recording, low-level control will saturate velocities; consider lowering processor limits.",
+                processor_name,
+                float(trans_max_vel),
+                float(rot_max_vel),
+                float(RokaeServer.MAX_LINEAR_VEL),
+                float(RokaeServer.MAX_ANGULAR_VEL),
+            )
+    except Exception:
+        # 防御性处理：如果无法导入 RokaeServer 或读取属性，忽略检查，不影响录制
+        pass
 
 
 def _make_bimanual_pipelines(
@@ -91,14 +121,17 @@ def _make_bimanual_pipelines(
     right_max_joint = getattr(cfg.robot, "right_max_joint", [])
 
     if cfg.teleop.type == "bi_spacemouse":
-        # 所有模式都使用相同的 BiInverseKinematicsProcessor
+    # 所有模式都使用相同的 BiInverseKinematicsProcessor
+    # 速度上限优先从 teleop 配置中读取，便于集中配置并与 RokaeServer 的硬限制做一致性检查
+        trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
+        rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
         teleop_action_processor_steps = [
             BiInverseKinematicsProcessor(
                 left_joint_num=left_joint_num,
                 right_joint_num=right_joint_num,
                 control_period=1.0 / cfg.dataset.fps,
-                trans_max_vel=0.1,
-                rot_max_vel=0.2,
+                trans_max_vel=trans_max_vel,
+                rot_max_vel=rot_max_vel,
                 left_rbv=left_rbv,
                 right_rbv=right_rbv,
                 left_min_joint=left_min_joint,
@@ -135,6 +168,12 @@ def _make_bimanual_pipelines(
         ]
     else:
         raise ValueError(f"Unsupported teleop type: {cfg.teleop.type}")
+
+    _warn_if_rokae_vel_limits_exceeded(
+        trans_max_vel=trans_max_vel,
+        rot_max_vel=rot_max_vel,
+        processor_name="BiInverseKinematicsProcessor",
+    )
 
     # 根据 callback_mode 配置不同的 robot_action_processor_steps
     if cb_mode == "cart_vel":
@@ -208,12 +247,16 @@ def _make_single_arm_pipelines(
     cb_mode = _callback_mode_value(getattr(cfg.robot, "callback_mode", None))
 
     if cfg.teleop.type == "spacemouse":
+        # 所有模式都使用相同的 InverseKinematicsProcessor
+        # 速度上限优先从 teleop 配置中读取
+        trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
+        rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
         teleop_action_processor_steps = [
             InverseKinematicsProcessor(
                 joint_num=joint_num,
                 control_period=1.0 / cfg.dataset.fps,
-                trans_max_vel=0.1,
-                rot_max_vel=0.2,
+                trans_max_vel=trans_max_vel,
+                rot_max_vel=rot_max_vel,
                 rbv=getattr(cfg.robot, "rbv", []),
                 min_joint=getattr(cfg.robot, "min_joint", []),
                 max_joint=getattr(cfg.robot, "max_joint", []),
@@ -236,6 +279,12 @@ def _make_single_arm_pipelines(
         ]
     else:
         raise ValueError(f"Unsupported single-arm teleop type: {cfg.teleop.type}")
+
+    _warn_if_rokae_vel_limits_exceeded(
+        trans_max_vel=trans_max_vel,
+        rot_max_vel=rot_max_vel,
+        processor_name="InverseKinematicsProcessor",
+    )
 
     # 根据 callback_mode 配置不同的 robot_action_processor_steps
     if cb_mode == "cart_vel":

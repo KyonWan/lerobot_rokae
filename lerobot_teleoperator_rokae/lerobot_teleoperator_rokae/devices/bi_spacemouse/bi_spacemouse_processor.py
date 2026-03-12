@@ -34,11 +34,12 @@ class BiInverseKinematicsProcessor(ProcessorStep):
     双臂版 InverseKinematicsProcessor：左右臂分别用 rokae_algo cross_wrist7 做笛卡尔速度积分 + 逆解，
     逻辑与单臂一致，key 使用 left_* / right_*。复用 spacemouse_processor 的 helper 与 update_gripper_state_from_buttons。
     """
+    # 无默认值字段必须放最前
+    control_period: float
+    trans_max_vel: float
+    rot_max_vel: float
     left_joint_num: int = 7
     right_joint_num: int = 7
-    control_period: float = 1.0 / 30
-    trans_max_vel: float = 0.1
-    rot_max_vel: float = 0.2
     initial_left_gripper_state: int = 1
     initial_right_gripper_state: int = 1
     # rokae_algo 运动学初始化参数：只支持左右分别配置

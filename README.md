@@ -91,7 +91,7 @@ conda activate lerobot
 cd rokae_python_wrapper
 ./scripts/start_rokae_left_server.sh
 
-# 或直接使用命令行
+# 或直接使用命令行（无夹爪时省略 --gripper_address；有夹爪时需先启动 rokae_gripper_server）
 python -m rokae_python_wrapper.rokae_zmq_server \
   --robot_ip=<你的机器人IP> \
   --host_ip=<你的主机IP> \
@@ -99,8 +99,7 @@ python -m rokae_python_wrapper.rokae_zmq_server \
   --zmq_transport=ipc \
   --joint_num=7 \
   --q_drag="-70,34,-64,105,50,0,-10" \
-  --end_effector=linkerhand_v10 \
-  --gripper_slave_addr=0x28
+  --gripper_address=ipc:///tmp/rokae_gripper_5557
 ```
 
 #### 3. 启动数据采集
@@ -128,6 +127,12 @@ python -m lerobot.scripts.lerobot_record \
   --display_data=true
 ```
 
+**常用可选参数**：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--display_data` | 是否在 Rerun 中显示采集数据 | `false` |
+| `--log_slow_loop_periodically` | 是否每秒打印一次控制循环耗时（用于监控帧率稳定性） | `false` |
 **使用 Pico 进行单臂数据采集：**
 
 使用 `scripts/pico_single_rokae_record.sh` 脚本进行数据采集：
@@ -178,7 +183,7 @@ lerobot-dataset-viz \
 ## 注意事项
 
 - ⚠️ 服务器启动后会自动运动到 `--q_drag` 指定的关节角度，务必确保设置正确，无碰撞风险。
-- ⚠️ 所有参数（`--robot_ip`、`--host_ip`、`--q_drag`、`--end_effector` 等）都需要与你的硬件实际配置匹配。
+- ⚠️ 所有参数（`--robot_ip`、`--host_ip`、`--q_drag`、`--gripper_address` 等）都需要与你的硬件实际配置匹配。
 - ⚠️ 使用自定义工具时，必须在代码中设置正确的工具信息（质量、质心、惯性张量等），否则可能导致位置控制偏差。
 
 ## 双臂机器人支持

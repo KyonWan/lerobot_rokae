@@ -30,6 +30,9 @@ class RokaeRobotConfig(RobotConfig):
     control_mode: ControlMode = ControlMode.JOINT_POSITION
     callback_mode: CallbackMode = CallbackMode.JOINT_POS
 
+    # 控制循环频率（Hz）。在录制脚本中会由 dataset.fps 自动覆盖，用于计算 interpolate_time = 1.0 / fps。
+    control_loop_fps: int | None = None
+
     # ZMQ server address
     # TCP mode: "tcp://127.0.0.1:5555" (works on all platforms, supports cross-network)
     # IPC mode (faster, Unix/Linux only): "ipc:///tmp/rokae_server_5555"
