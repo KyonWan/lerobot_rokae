@@ -8,7 +8,6 @@ from typing import Literal
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import meshcat.transformations as tf
 from xrobotoolkit_teleop.utils.geometry import apply_delta_pose
 
 try:
