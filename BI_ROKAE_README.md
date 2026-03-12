@@ -21,7 +21,7 @@
 
 ### 3. Pico 遥操作支持
 - 创建了双臂 Pico 遥操作器：`Pico`（`teleop.type=pico`）
-- 配置文件：`PicoConfig`，主要配置变量：
+- 配置文件：`PicoConfig`，位于lerobot_teleoperatoe_rokae/lerobot_teleoperatoe_rokae/devices/pico/config_pico.py中，主要配置变量：
   - `fps`： pico 端数据更新频率
   - `xyz_scale_factor`：位置增量缩放因子
   - `rot_scale_factor`：姿态增量缩放因子
