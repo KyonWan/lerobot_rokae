@@ -338,14 +338,14 @@ if __name__ == "__main__":
                 # f"left_target_wx: {action['left_target_wx']:.4f}\n"
                 # f"left_target_wy: {action['left_target_wy']:.4f}\n"
                 # f"left_target_wz: {action['left_target_wz']:.4f}\n"
-                f"left_gripper_position: {action['left_gripper_position']:.4f}\n"
+                f"left_gripper_position: {action['left_gripper_pos']:.4f}\n"
                 # f"right_target_x: {action['right_target_x']:.4f}\n"
                 # f"right_target_y: {action['right_target_y']:.4f}\n"
                 # f"right_target_z: {action['right_target_z']:.4f}\n"
                 # f"right_target_wx: {action['right_target_wx']:.4f}\n"
                 # f"right_target_wy: {action['right_target_wy']:.4f}\n"
                 # f"right_target_wz: {action['right_target_wz']:.4f}\n"
-                # f"right_gripper_position: {action['right_gripper_position']:.4f}\n"
+                # f"right_gripper_position: {action['right_gripper_pos']:.4f}\n"
             )
             
             # 控制打印频率，避免刷屏太快
