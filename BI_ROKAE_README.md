@@ -21,7 +21,7 @@
 
 ### 3. Pico 遥操作支持
 - 创建了双臂 Pico 遥操作器：`Pico`（`teleop.type=pico`）
-- 配置文件：`PicoConfig`，主要配置变量：
+- 配置文件：`PicoConfig`，位于lerobot_teleoperatoe_rokae/lerobot_teleoperatoe_rokae/devices/pico/config_pico.py中，主要配置变量：
   - `fps`： pico 端数据更新频率
   - `xyz_scale_factor`：位置增量缩放因子
   - `rot_scale_factor`：姿态增量缩放因子
@@ -115,13 +115,10 @@ python -m rokae_python_wrapper.rokae_server \
 2. 或者使用其他方法区分设备（如设备序列号）
 
 ### 3. 安装 XRoboToolkit PC 并连接 Pico 设备（Pico 模式）
-- 准备工作：参照 https://github.com/XR-Robotics/.github/blob/main/profile/README-ZH.md ，完成“如何开始”中的以下部分：
-  - 在控制机器人的电脑上安装 XRoboToolkit-PC-Service
-  - 在头显上安装 XR app
-  - 运行程序 
-- 使用说明：完成准备工作后，在头显上打开 app XRoboToolkit，在enter处连接控制机器人电脑的IP，勾选 head，hand，controller，send（注意：控制机器人的电脑需要和pico 4 U 头显在同一个网络环境下）
+- 准备工作：参照[Lerobot with Rokae](README.md)完成对 XRoboToolkit 的安装。
+- 使用说明：完成准备工作后，在头显上打开 app XRoboToolkit，在enter处连接控制机器人电脑的IP，勾选 head，hand，controller，send（注意：控制机器人的电脑需要和pico 4 U 头显在同一个网络环境下）。
 - 默认控制映射：
-  - 双臂模式 `teleop.type=pico`：左手柄控制左臂，右手柄控制右臂
+  - 双臂模式 `teleop.type=pico`：左手柄控制左臂，右手柄控制右臂。
 
 ## 使用方法
 
