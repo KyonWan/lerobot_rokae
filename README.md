@@ -64,9 +64,16 @@ cd rokae_python_wrapper
 pip install -e .
 cd ..
 ```
-### 6. 安装 XRoboToolkit PC （仅当使用 Pico 遥操作时需要）
+### 6. 安装 [XRoboToolkit](https://github.com/XR-Robotics) （仅当使用 Pico 遥操作时需要）
 
-参照[双臂机器人使用说明](BI_ROKAE_README.md)中“使用前准备”小节的“安装 XRoboToolkit PC 并连接 Pico 设备”，在控制机械臂的电脑端安装 XRoboToolkit-PC-Service ，在头显上安装 XR app
+- 请先完成[XRoboToolkit](https://github.com/XR-Robotics)中`Get Started`的第一步和第三步。
+- 随后在 lerobot_rokae 之外的文件夹完成以下安装：
+```bash
+git clone https://github.com/XR-Robotics/XRoboToolkit-Teleop-Sample-Python.git
+cd XRoboToolkit-Teleop-Sample-Python
+bash setup_conda.sh --install
+```
+- 最后，请完成`Get Started`第四步的前三步，以确保VR设备可以正常的与电脑进行通信。
 
 ## 数据采集
 

@@ -115,13 +115,10 @@ python -m rokae_python_wrapper.rokae_server \
 2. 或者使用其他方法区分设备（如设备序列号）
 
 ### 3. 安装 XRoboToolkit PC 并连接 Pico 设备（Pico 模式）
-- 准备工作：参照 https://github.com/XR-Robotics/.github/blob/main/profile/README-ZH.md ，完成“如何开始”中的以下部分：
-  - 在控制机器人的电脑上安装 XRoboToolkit-PC-Service
-  - 在头显上安装 XR app
-  - 运行程序 
-- 使用说明：完成准备工作后，在头显上打开 app XRoboToolkit，在enter处连接控制机器人电脑的IP，勾选 head，hand，controller，send（注意：控制机器人的电脑需要和pico 4 U 头显在同一个网络环境下）
+- 准备工作：参照[Lerobot with Rokae](README.md)完成对 XRoboToolkit 的安装。
+- 使用说明：完成准备工作后，在头显上打开 app XRoboToolkit，在enter处连接控制机器人电脑的IP，勾选 head，hand，controller，send（注意：控制机器人的电脑需要和pico 4 U 头显在同一个网络环境下）。
 - 默认控制映射：
-  - 双臂模式 `teleop.type=pico`：左手柄控制左臂，右手柄控制右臂
+  - 双臂模式 `teleop.type=pico`：左手柄控制左臂，右手柄控制右臂。
 
 ## 使用方法
 
