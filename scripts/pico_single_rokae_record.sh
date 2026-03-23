@@ -22,14 +22,16 @@ MAX_JOINT_RAD="[3.106686,2.094395,3.106686,2.530727,3.106686,1.047198,1.047198]"
 
 python -m lerobot.scripts.lerobot_record \
     --robot.type=rokae_robot \
-    --robot.zmq_port=5556 \
+    --robot.zmq_port=5555 \
     --robot.joint_num=7 \
-    --robot.control_mode=joint_position \
+    --robot.control_mode=joint_impedance \
     --robot.callback_mode=joint_pos \
     --robot.rbv="$RBV_M" \
     --robot.min_joint="$MIN_JOINT_RAD" \
     --robot.max_joint="$MAX_JOINT_RAD" \
     --teleop.type=pico_single \
+    --teleop.side='right' \
+    --teleop.R_headset_world='[90.0, 0.0, 180.0]' \
     --dataset.repo_id=test_2025/rokae_record \
     --dataset.root="/home/rx78/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
     --dataset.num_episodes=10 \

@@ -42,9 +42,9 @@ python -m lerobot.scripts.lerobot_record \
     --robot.right_zmq_port=5556 \
     --robot.left_joint_num=7 \
     --robot.right_joint_num=7 \
-    --robot.left_control_mode=joint_position \
+    --robot.left_control_mode=joint_impedance \
     --robot.left_callback_mode=joint_pos \
-    --robot.right_control_mode=joint_position \
+    --robot.right_control_mode=joint_impedance \
     --robot.right_callback_mode=joint_pos \
     --robot.left_rbv="$LEFT_RBV_M" \
     --robot.left_min_joint="$LEFT_MIN_JOINT_RAD" \
@@ -53,6 +53,7 @@ python -m lerobot.scripts.lerobot_record \
     --robot.right_min_joint="$RIGHT_MIN_JOINT_RAD" \
     --robot.right_max_joint="$RIGHT_MAX_JOINT_RAD" \
     --teleop.type=pico \
+    --teleop.R_headset_world='[90.0, 0.0, 180.0]' \
     --dataset.repo_id=test_2026/bi_rokae_record \
     --dataset.root="/home/rx78/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
     --dataset.num_episodes=100 \

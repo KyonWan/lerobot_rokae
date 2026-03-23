@@ -148,6 +148,8 @@ def _make_bimanual_pipelines(
         ]
     elif cfg.teleop.type == "pico":
         # 所有模式都使用相同的 PicoBiInverseKinematicsProcessor
+        trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
+        rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
         teleop_action_processor_steps = [
             PicoBiInverseKinematicsProcessor(
                 left_joint_num=left_joint_num,
@@ -266,6 +268,8 @@ def _make_single_arm_pipelines(
             )
         ]
     elif cfg.teleop.type == "pico_single":
+        trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
+        rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
         teleop_action_processor_steps = [
             PicoSingleInverseKinematicsProcessor(
                 joint_num=joint_num,
