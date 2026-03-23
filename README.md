@@ -66,14 +66,39 @@ cd ..
 ```
 ### 6. 安装 [XRoboToolkit](https://github.com/XR-Robotics) （仅当使用 Pico 遥操作时需要）
 
-- 请先完成[XRoboToolkit](https://github.com/XR-Robotics)中`Get Started`的第一步和第三步。
+#### 安装 XRoboToolkit PC 服务
+- 下载适用于 [Ubuntu 22.04](https://github.com/XR-Robotics/XRoboToolkit-PC-Service/releases/download/v1.0.0/XRoboToolkit_PC_Service_1.0.0_ubuntu_22.04_amd64.deb)/ [Ubuntu 24.04](https://github.com/XR-Robotics/XRoboToolkit-PC-Service/releases/download/v1.0.0/XRoboToolkit_PC_Service_1.0.0_ubuntu_24.04_amd64.deb) 的 .deb 安装包，或从[源码仓库](https://github.com/XR-Robotics/XRoboToolkit-PC-Service)自行构建。
+- 安装命令：
+  Ubuntu 22.04:
+  ```
+  sudo dpkg -i XRoboToolkit-PC-Service_1.0.0_ubuntu_22.04_amd64.deb
+  ```
+  Ubuntu 24.04:
+  ```
+  sudo dpkg -i XRoboToolkit-PC-Service_1.0.0_ubuntu_24.04_amd64.deb
+  ```
 - 随后在 lerobot_rokae 之外的文件夹完成以下安装：
-```bash
-git clone https://github.com/XR-Robotics/XRoboToolkit-Teleop-Sample-Python.git
-cd XRoboToolkit-Teleop-Sample-Python
-bash setup_conda.sh --install
-```
-- 最后，请完成`Get Started`第四步的前三步，以确保VR设备可以正常的与电脑进行通信。
+  ```bash
+  git clone https://github.com/XR-Robotics/XRoboToolkit-Teleop-Sample-Python.git
+  cd XRoboToolkit-Teleop-Sample-Python
+  bash setup_conda.sh --install
+  ```
+
+#### 在Pico 4U头显设备上安装XR app
+- 打开Pico 4U的[开发者模式](https://developer.picoxr.com/ja/document/unreal/test-and-build/)，确保电脑安装了[adb](https://developer.android.com/tools/adb)。
+- 在装有adb的电脑上下载apk文件[XRoboToolkit-PICO-1.1.1.apk](https://github.com/XR-Robotics/XRoboToolkit-Unity-Client/releases/download/v1.1.1/XRoboToolkit-PICO-1.1.1.apk)。
+- 使用adb命令安装apk：
+  ```
+  adb install -g XRoboToolkit-PICO-1.1.1.apk
+  ```
+
+#### 使用Pico采集数据前的必要操作
+- 确保控制机器人的电脑和Pico头显处于同一网络下。
+- 在控制机器人的电脑端，双击应用XRoboToolkit-PC-Service的图标或通过以下命令打开服务：
+  ```
+  /opt/apps/roboticsservice/runService.sh
+  ```
+- 在Pico头显上打开应用XRoboToolkit，在应用界面的Enter处输入控制机器人的电脑的IP，勾选以下方框：head，controller和send。
 
 ## 数据采集
 
@@ -135,6 +160,12 @@ python -m lerobot.scripts.lerobot_record \
   --display_data=true
 ```
 
+**常用可选参数**：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--display_data` | 是否在 Rerun 中显示采集数据 | `false` |
+| `--log_slow_loop_periodically` | 是否每秒打印一次控制循环耗时（用于监控帧率稳定性） | `false` |
 **使用 Pico 进行单臂数据采集：**
 
 使用 `scripts/pico_single_rokae_record.sh` 脚本进行数据采集：
@@ -148,15 +179,32 @@ chmod +x scripts/pico_single_rokae_record.sh
 
 ```bash
 python -m lerobot.scripts.lerobot_record \
-  --robot.type=rokae_robot \
-  --teleop.type=pico_single \
-  --dataset.repo_id=Rokae/lerobot_test_1 \
-  --dataset.root="./datasets" \
-  --dataset.num_episodes=2 \
-  --dataset.single_task="Grab the cube" \
-  --dataset.push_to_hub=False \
-  --display_data=true
+    --robot.type=rokae_robot \
+    --robot.zmq_port=5555 \
+    --robot.joint_num=7 \
+    --robot.control_mode=joint_impedance \
+    --robot.callback_mode=joint_pos \
+    --robot.rbv="$RBV_M" \
+    --robot.min_joint="$MIN_JOINT_RAD" \
+    --robot.max_joint="$MAX_JOINT_RAD" \
+    --teleop.type=pico_single \
+    --teleop.side='right' \
+    --teleop.R_headset_world='[90.0, 0.0, 180.0]' \
+    --dataset.repo_id=test_2025/rokae_record \
+    --dataset.root="/home/rx78/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
+    --dataset.num_episodes=10 \
+    --dataset.episode_time_s=100 \
+    --dataset.single_task="Grab the cube" \
+    --dataset.push_to_hub=False \
+    --display_data=False
 ```
+
+**常用可选参数**：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--teleop.side` | 使用哪个手柄控制单个机械臂 | `right` |
+| `--teleop.R_headset_world` | 头显设备到世界坐标系的旋转矩阵（xyz内旋欧拉角表示），根据佩戴头显设备的操作者的站位和世界坐标系的设定自行修改配置 | `[90.0, 0.0, 180.0]` |
 
 **添加相机支持**（可选）：
 
