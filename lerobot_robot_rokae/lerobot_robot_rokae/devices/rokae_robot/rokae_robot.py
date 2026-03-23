@@ -40,6 +40,12 @@ class RokaeRobot(Robot):
         self.cameras = make_cameras_from_configs(config.cameras)
         self.gripper_pos_cur = None
 
+        # 由录制脚本通过 config.control_loop_fps 传入控制频率，用于统一设置插值时间 interpolate_time = 1.0 / fps
+        self.interpolate_time: float | None = None
+        control_loop_fps = getattr(config, "control_loop_fps", None)
+        if control_loop_fps is not None and control_loop_fps > 0:
+            self.interpolate_time = 1.0 / float(control_loop_fps)
+
         # 使用 ZMQ 客户端
         if config.zmq_address:
             zmq_address = config.zmq_address
@@ -125,8 +131,6 @@ class RokaeRobot(Robot):
             "psi": state.get("psi", 0.0),
             "gripper_pos": state["gripper_pos"][0],
         }
-        dt_ms = (time.perf_counter() - start) * 1e3
-        logger.debug(f"{self} read state: {dt_ms:.1f}ms")
 
         # Capture images from cameras
         for cam_key, cam in self.cameras.items():
@@ -154,11 +158,14 @@ class RokaeRobot(Robot):
                 action_type=action_type,
                 action_value=robot_action,
                 gripper_pos=gripper_pos,
-                quantities=["joint_pos_real", "gripper_pos"],
+                quantities=["joint_pos_real", "cart_pos_real", "psi", "gripper_pos"],
+                interpolate_time=self.interpolate_time,
             )
             self.gripper_pos_cur = gripper_pos
             return {
                 **{f"joint_pos{i}": state["joint_pos_real"][i] for i in range(self.joint_num)},
+                **{f"cart_pos{i}": state["cart_pos_real"][i] for i in range(6)},
+                "psi": state["psi"],
                 "gripper_pos": state["gripper_pos"][0],
             }
         # ZMQ 客户端回退逻辑（如果 send_action_and_get_state 不可用）
@@ -166,10 +173,10 @@ class RokaeRobot(Robot):
         # 但保留此逻辑作为安全回退
         if self.cfg.callback_mode == CallbackMode.JOINT_POS:
             robot_action = np.array([action[f"joint_pos{i}"] for i in range(self.joint_num)])
-            self.client.set_target_joint_pos(robot_action)
+            self.client.set_target_joint_pos(robot_action, interpolate_time=self.interpolate_time)
         elif self.cfg.callback_mode == CallbackMode.CART_POS:
             robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)])
-            self.client.set_target_cart_pos(robot_action)
+            self.client.set_target_cart_pos(robot_action, interpolate_time=self.interpolate_time)
         elif self.cfg.callback_mode == CallbackMode.CART_VEL:
             robot_action = np.array([action[f"cart_vel{i}"] for i in range(6)])
             self.client.set_target_cart_vel(robot_action)
@@ -182,7 +189,12 @@ class RokaeRobot(Robot):
 
         state = self.client.get_state(["joint_pos_real", "cart_pos_real", "psi", "gripper_pos"])
 
-        return {**{f"joint_pos{i}": state["joint_pos_real"][i] for i in range(self.joint_num)}, "gripper_pos": state["gripper_pos"][0]}
+        return {
+            **{f"joint_pos{i}": state["joint_pos_real"][i] for i in range(self.joint_num)},
+            **{f"cart_pos{i}": state["cart_pos_real"][i] for i in range(6)},
+            "psi": state["psi"],
+            "gripper_pos": state["gripper_pos"][0],
+        }
 
     def disconnect(self):
         if not self.is_connected:

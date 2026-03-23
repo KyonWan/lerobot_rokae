@@ -28,6 +28,9 @@ class BiRokaeRobotConfig(RobotConfig):
     left_joint_num: int = 7
     right_joint_num: int = 7
 
+    # 控制循环频率（Hz）。在录制脚本中会由 dataset.fps 自动覆盖，并传播到左右单臂的 RokaeRobotConfig。
+    control_loop_fps: int | None = None
+
     # Control modes
     left_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDNACE
     left_callback_mode: CallbackMode = CallbackMode.CART_VEL

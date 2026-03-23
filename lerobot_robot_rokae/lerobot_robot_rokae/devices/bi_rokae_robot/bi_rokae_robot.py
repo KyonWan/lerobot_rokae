@@ -51,6 +51,7 @@ class BiRokaeRobot(Robot):
             control_mode=config.left_control_mode,
             callback_mode=config.left_callback_mode,
             zmq_address=left_zmq_address,
+            control_loop_fps=getattr(config, "control_loop_fps", None),
             cameras={},  # Cameras are shared at the bimanual level
         )
 
@@ -61,6 +62,7 @@ class BiRokaeRobot(Robot):
             control_mode=config.right_control_mode,
             callback_mode=config.right_callback_mode,
             zmq_address=right_zmq_address,
+            control_loop_fps=getattr(config, "control_loop_fps", None),
             cameras={},  # Cameras are shared at the bimanual level
         )
 
