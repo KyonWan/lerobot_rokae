@@ -74,7 +74,7 @@ class Pico(Teleoperator):
         self._last_left_trigger_val = 1.0
         self._last_right_trigger_val = 1.0
         self.manipulator_config = DEFAULT_MANIPULATOR_CONFIG
-        self.R_headset_world = R.from_euler('ZYX', self.cfg.R_headset_world, degrees=True).as_matrix()
+        self.R_headset_world = R.from_euler('xyz', self.cfg.R_headset_world, degrees=True).as_matrix()
 
         # Store current delta values for each arm
         self.current_delta_xyz = {}
@@ -330,18 +330,27 @@ if __name__ == "__main__":
         while True:
             # 获取并打印动作，用于检查数据是否正确（如坐标变化、夹爪状态）
             action = teleop.get_action()
+            # # [debug]
+            # # xr_pose 与 _process_xr_pose 一致: [tx, ty, tz, qx, qy, qz, qw]，以下为设备返回的原始平移
+            # _xr_pose_left = xr_client.get_pose_by_name("left_controller")
+            # _xr_pose_right = xr_client.get_pose_by_name("right_controller")
+            # print(
+            #     f"xr_pose raw translation left [tx, ty, tz]: {_xr_pose_left[0]:.4f}, {_xr_pose_left[1]:.4f}, {_xr_pose_left[2]:.4f}\n"
+            #     # f"xr_pose raw translation right [tx, ty, tz]: {_xr_pose_right[0]:.4f}, {_xr_pose_right[1]:.4f}, {_xr_pose_right[2]:.4f}"
+            # )
+            # # [debug end]
             print(
                 f"当前运行时长：{i*0.5}s\n"
-                f"left_target_x: {action['left_target_x']:.4f}\n"
-                f"left_target_y: {action['left_target_y']:.4f}\n"
-                f"left_target_z: {action['left_target_z']:.4f}\n"
+                # f"left_target_x: {action['left_target_x']:.4f}\n"
+                # f"left_target_y: {action['left_target_y']:.4f}\n"
+                # f"left_target_z: {action['left_target_z']:.4f}\n"
                 # f"left_target_wx: {action['left_target_wx']:.4f}\n"
                 # f"left_target_wy: {action['left_target_wy']:.4f}\n"
                 # f"left_target_wz: {action['left_target_wz']:.4f}\n"
-                f"left_gripper_position: {action['left_gripper_pos']:.4f}\n"
-                # f"right_target_x: {action['right_target_x']:.4f}\n"
-                # f"right_target_y: {action['right_target_y']:.4f}\n"
-                # f"right_target_z: {action['right_target_z']:.4f}\n"
+                # f"left_gripper_position: {action['left_gripper_pos']:.4f}\n"
+                f"right_target_x: {action['right_target_x']:.4f}\n"
+                f"right_target_y: {action['right_target_y']:.4f}\n"
+                f"right_target_z: {action['right_target_z']:.4f}\n"
                 # f"right_target_wx: {action['right_target_wx']:.4f}\n"
                 # f"right_target_wy: {action['right_target_wy']:.4f}\n"
                 # f"right_target_wz: {action['right_target_wz']:.4f}\n"
