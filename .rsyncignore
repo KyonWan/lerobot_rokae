@@ -20,7 +20,8 @@ venv/
 env/
 
 # datasets
-datasets/
+dataset/
+logs/
 
 # outputs
 # outputs/
