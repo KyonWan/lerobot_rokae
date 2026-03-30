@@ -1,0 +1,24 @@
+[project]
+name = "rokae_policy_runtime"
+version = "0.1.0"
+description = "Policy runtime bridges for Rokae robot (OpenPI and future adapters)"
+requires-python = ">=3.10"
+dependencies = [
+    "lerobot",
+    "lerobot_robot_rokae",
+    "numpy",
+    "opencv-python",
+    "scipy",
+    "openpi-client",
+]
+
+[project.scripts]
+rokae-openpi = "rokae_policy_runtime.openpi.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rokae_policy_runtime*"]
