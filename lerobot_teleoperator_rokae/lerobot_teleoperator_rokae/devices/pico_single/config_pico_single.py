@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from lerobot.teleoperators.config import TeleoperatorConfig
-from xrobotoolkit_teleop.common.xr_client import XrClient
+
+if TYPE_CHECKING:
+    from xrobotoolkit_teleop.common.xr_client import XrClient  # pyright: ignore[reportMissingImports]
 
 
 @TeleoperatorConfig.register_subclass("pico_single")
@@ -15,7 +17,7 @@ class PicoSingleConfig(TeleoperatorConfig):
         if self.side not in ("left", "right"):
             raise ValueError(f"PicoSingleConfig.side must be 'left' or 'right', got {self.side!r}")
     fps: float = 60.0                       # pico 数据更新频率   
-    xr_client: Optional[XrClient] = None    
+    xr_client: Optional[Any] = None
     trigger_reverse: bool = True            # 是否反转原始 trigger 值
     trigger_threshold: float = 0.5          # trigger 二值化阈值
     close_position: float = 0.0
