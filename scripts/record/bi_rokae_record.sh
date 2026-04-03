@@ -42,10 +42,10 @@ python -m lerobot.scripts.lerobot_record \
     --robot.right_zmq_port=5556 \
     --robot.left_joint_num=7 \
     --robot.right_joint_num=7 \
-    --robot.left_control_mode=cartesian_position \
-    --robot.left_callback_mode=cart_pos \
-    --robot.right_control_mode=cartesian_position \
-    --robot.right_callback_mode=cart_pos \
+    --robot.left_control_mode=joint_impedance \
+    --robot.left_callback_mode=joint_pos \
+    --robot.right_control_mode=joint_impedance \
+    --robot.right_callback_mode=joint_pos \
     --robot.left_rbv="$LEFT_RBV_M" \
     --robot.left_min_joint="$LEFT_MIN_JOINT_RAD" \
     --robot.left_max_joint="$LEFT_MAX_JOINT_RAD" \
@@ -56,10 +56,10 @@ python -m lerobot.scripts.lerobot_record \
     --teleop.left_device_index=0 \
     --teleop.right_device_index=3 \
     --dataset.repo_id=test_2025/bi_rokae_record \
-    --dataset.root="/home/rx78/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
+    --dataset.root="/home/wanhao/Projects/lerobot_rokae/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
     --dataset.num_episodes=100 \
     --dataset.episode_time_s=100 \
     --dataset.single_task="Use the left arm to place the two small joint modules into the two left blue boxes, and use the right arm to place the two large joint modules into the two right blue boxes." \
     --dataset.push_to_hub=False \
-    --display_data=True
+    --display_data=False
     # --robot.cameras="$CAMERAS_CONFIG"
