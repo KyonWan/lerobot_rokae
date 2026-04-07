@@ -2,7 +2,7 @@
 笛卡尔阻抗链、ref 系速度积分与观测键解析。
 
 供单臂 `spacemouse_processor` 与双臂 `bi_spacemouse_processor` 共用，避免重复实现同一套
-end/flange/ref/base 变换与 cart_vel 缩放逻辑。
+end/flange/ref/base 变换与 cart_vel 缩放逻辑（逆解后端见 `pink_ik_helpers` / `run_cross_wrist7_arm_step`）。
 """
 
 from __future__ import annotations

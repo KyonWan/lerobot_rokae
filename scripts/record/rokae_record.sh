@@ -24,7 +24,7 @@ MAX_JOINT_RAD="[2.93215, 1.91986, 2.93215, 2.35619, 2.93215, 0.872665, 0.872665]
 
 taskset -c 0 python -m lerobot.scripts.lerobot_record \
     --robot.type=rokae_robot \
-    --robot.zmq_port=5555 \
+    --robot.zmq_port=5556 \
     --robot.joint_num=7 \
     --robot.control_mode=joint_impedance \
     --robot.callback_mode=joint_pos \
