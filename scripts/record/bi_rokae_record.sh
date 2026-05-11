@@ -10,11 +10,17 @@
 # 示例：如果已录制50个episode，想再录制50个，设置 num_episodes=50
 
 # 相机配置
-CAMERAS_CONFIG="{external: {type: intelrealsense, serial_number_or_name: '125322062165', \
+DATASET_VCODEC="h264"
+
+# 相机配置
+# external 设为 640x480 时，rokae_record_plugin 会跳过 Python 裁切+resize（降低 obs_proc；需全幅画面请在相机端或改分辨率）
+# 单核 taskset 时写盘线程过多会与主循环抢 CPU，加重 Slow loop；每相机 1 个写线程通常更稳。
+# （若录制进程可占多核且希望更快清空队列，可适当增大该值。）
+CAMERAS_CONFIG="{external: {type: orbbec, serial_number_or_index: 'CP2G8530004K', \
 width: 640, height: 480, fps: 60, use_depth: false}, \
-left_wrist: {type: intelrealsense, serial_number_or_name: '809512060572', \
+left_wrist: {type: intelrealsense, serial_number_or_name: '260322271562', \
 width: 640, height: 480, fps: 60, use_depth: false}, \
-right_wrist: {type: intelrealsense, serial_number_or_name: '036422060433', \
+right_wrist: {type: intelrealsense, serial_number_or_name: '352122272829', \
 width: 640, height: 480, fps: 60, use_depth: false}}"
 
 # rokae_algo 运动学参数（7 轴 cross_wrist7）
@@ -35,7 +41,20 @@ RIGHT_RBV_M="[0.0,0.0,0.0,0.0,0.0,0.1745,0.0,0.0,0.314,0.01,0.0,0.0,-0.01,0.0,0.
 RIGHT_MIN_JOINT_RAD="[-3.106686,-2.094395,-3.106686,-1.047198,-3.106686,-1.047198,-1.047198]"
 RIGHT_MAX_JOINT_RAD="[3.106686,2.094395,3.106686,2.530727,3.106686,1.047198,1.047198]"
 
-python -m lerobot.scripts.lerobot_record \
+# --- Teleop / Pink 双臂 IK（kinematics_preset，rokae_record_plugin + pink_ik_helpers）---
+# --teleop.kinematics_preset
+#   wheeled_ar_dual    固定式双臂：默认 URDF 为包内 AR5-5_07L / 07R，末端 link 为 *_tcp。
+#   fixed_ar_dual  轮式/整机双臂：默认末端为 08* 系列的 *_flan_link；须配合「整机」URDF。
+# 环境变量（未写 --teleop.left/right_urdf_path 时由 default_rokae_urdf_path_* 读取）：
+#   ROKAE_IK_URDF_PATH_LEFT / ROKAE_IK_URDF_PATH_RIGHT 覆盖默认 .urdf 路径。
+# 可选 CLI 覆盖（写上则覆盖预设里解析出的路径/末端名；必须与对应 URDF 里 <link name> 一致）：
+#   --teleop.left_urdf_path / right_urdf_path
+#   --teleop.left_end_effector_frame / right_end_effector_frame
+# 注意：仓库内 07L/07R 单机描述只有 *_tcp，没有 *_flan_link；用单机 URDF 时应用 fixed_ar_dual，
+#       或像下面这样显式写 *_tcp 与 07 urdf（不要写 URDF 中不存在的 link 名）。
+# ------------------------------------------------------------------------------------
+
+taskset -c 9 python -m lerobot.scripts.lerobot_record \
     --resume=False \
     --robot.type=bi_rokae_robot \
     --robot.left_zmq_port=5555 \
@@ -54,12 +73,17 @@ python -m lerobot.scripts.lerobot_record \
     --robot.right_max_joint="$RIGHT_MAX_JOINT_RAD" \
     --teleop.type=bi_spacemouse \
     --teleop.left_device_index=0 \
-    --teleop.right_device_index=3 \
+    --teleop.right_device_index=1 \
     --dataset.repo_id=test_2025/bi_rokae_record \
-    --dataset.root="/home/wanhao/Projects/lerobot_rokae/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
+    --dataset.root="/home/rokae/dataset/gripper_parts_single_test" \
     --dataset.num_episodes=100 \
-    --dataset.episode_time_s=100 \
-    --dataset.single_task="Use the left arm to place the two small joint modules into the two left blue boxes, and use the right arm to place the two large joint modules into the two right blue boxes." \
+    --dataset.episode_time_s=300 \
+    --dataset.single_task="Put the two white parts into the gray box." \
     --dataset.push_to_hub=False \
-    --display_data=False
-    # --robot.cameras="$CAMERAS_CONFIG"
+    --display_data=False \
+    --robot.cameras="$CAMERAS_CONFIG" \
+    --teleop.kinematics_preset=wheeled_ar_dual \
+    --teleop.left_end_effector_frame=AR5-5_07L-W4C4A2_tcp \
+    --teleop.right_end_effector_frame=AR5-5_07R-W4C4A2_tcp \
+    --teleop.left_urdf_path=/home/rokae/Projects/lerobot_rokae/rokae_python_wrapper/rokae_kinematics/rokae_urdf/AR5-5_07L-W4C4A2_description/urdf/AR5-5_07L-W4C4A2.urdf \
+    --teleop.right_urdf_path=/home/rokae/Projects/lerobot_rokae/rokae_python_wrapper/rokae_kinematics/rokae_urdf/AR5-5_07R-W4C4A2_description/urdf/AR5-5_07R-W4C4A2.urdf

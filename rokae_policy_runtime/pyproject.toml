@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 rokae-openpi = "rokae_policy_runtime.openpi.cli:main"
+rokae-openpi-bi = "rokae_policy_runtime.openpi.bi_cli:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]

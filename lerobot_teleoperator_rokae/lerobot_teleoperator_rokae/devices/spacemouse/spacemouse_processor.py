@@ -77,6 +77,7 @@ class InverseKinematicsProcessor(ProcessorStep):
         default_factory=lambda: np.zeros(6, dtype=np.float64)
     )
     urdf_path: str = field(default_factory=default_rokae_urdf_path)
+    # 须与 URDF 中末端 link 名一致；默认对齐 pink_ik_helpers 内置 AR5-5_07L-W4C4A2 包
     end_effector_frame: str = "AR5-5_07L-W4C4A2_tcp"
     joint_vel_max: float = SNS_JOINT_VEL_MAX
     joint_acc_max: float = SNS_JOINT_ACC_MAX

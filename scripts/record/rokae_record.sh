@@ -10,31 +10,48 @@
 # 示例：如果已录制50个episode，想再录制50个，设置 num_episodes=50
 
 # 相机配置
-CAMERAS_CONFIG="{external: {type: intelrealsense, serial_number_or_name: '809512060572', \
+# CAMERAS_CONFIG="{external: {type: intelrealsense, serial_number_or_name: '809512060572', \
+# width: 640, height: 480, fps: 60, use_depth: false}}"
+DATASET_VCODEC="h264"
+
+# 相机配置
+# external 设为 640x480 时，rokae_record_plugin 会跳过 Python 裁切+resize（降低 obs_proc；需全幅画面请在相机端或改分辨率）
+# cpu_core 要求录制进程允许的 CPU 集合包含这些核（勿再用 taskset -c 0 单核，否则线程无法绑到 5/6/7）
+CAMERAS_CONFIG="{external: {type: orbbec, serial_number_or_index: 'CP2G85300022', \
+width: 640, height: 480, fps: 60, use_depth: false}, \
+left_wrist: {type: intelrealsense, serial_number_or_name: '260322274865', \
+width: 640, height: 480, fps: 60, use_depth: false}, \
+right_wrist: {type: intelrealsense, serial_number_or_name: '260322272759', \
 width: 640, height: 480, fps: 60, use_depth: false}}"
 
-# rokae_algo 运动学参数（7 轴 cross_wrist7）
-# rbv: 机器人描述参数，接口为米(m)，此处已由 mm 换算为 m
-RBV_M="[0.0,0.0,0.0,0.0,0.0,0.1745,0.0,0.0,0.314,0.01,0.0,0.0,-0.01,0.0,0.272,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.097]"
-# RBV_M="[0.0, 0.0, 0.0, 0.0, 0.0, 0.2415, 0.0, 0.0, 0.49, 0.0, 0.0, 0.36, 0.0, 0.15, 0.0, 0.0, 0.0, 0.127, 0.0, 0.0, 0.0]"
+# CAMERAS_CONFIG="{external: {type: orbbec, serial_number_or_index: 'CP2G85300022', \
+# width: 1280, height: 720, fps: 60, use_depth: false, cpu_core: 5}, \
+# left_wrist: {type: intelrealsense, serial_number_or_name: '260322274865', \
+# width: 640, height: 480, fps: 60, use_depth: false, cpu_core: 6}}"
 
-# 关节限位（弧度），由角度换算：JOINT_RANGE_MIN/MAX_CUSTOMIZE 度 -> 弧度
+echo "[bi_rokae_record] dataset.vcodec=$DATASET_VCODEC"
 MIN_JOINT_RAD="[-2.93215, -1.91986, -2.93215, -0.872665, -2.93215, -0.872665, -0.872665]"
 MAX_JOINT_RAD="[2.93215, 1.91986, 2.93215, 2.35619, 2.93215, 0.872665, 0.872665]"
+RBV_M="[0.0,0.0,0.0,0.0,0.0,0.1745,0.0,0.0,0.314,0.01,0.0,0.0,-0.01,0.0,0.272,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.097]"
+MIN_JOINT_RAD="[-3.106686,-2.094395,-3.106686,-1.047198,-3.106686,-1.047198,-1.047198]"
+MAX_JOINT_RAD="[3.106686,2.094395,3.106686,2.530727,3.106686,1.047198,1.047198]"
+# 关节限位（弧度），由角度换算：JOINT_RANGE_MIN/MAX_CUSTOMIZE 度 -> 弧度
+
 
 taskset -c 0 python -m lerobot.scripts.lerobot_record \
     --robot.type=rokae_robot \
-    --robot.zmq_port=5556 \
+    --robot.zmq_port=5555 \
     --robot.joint_num=7 \
-    --robot.control_mode=joint_impedance \
+    --robot.control_mode=joint_position \
     --robot.callback_mode=joint_pos \
     --robot.rbv="$RBV_M" \
     --robot.min_joint="$MIN_JOINT_RAD" \
     --robot.max_joint="$MAX_JOINT_RAD" \
     --teleop.type=spacemouse \
     --teleop.device_index=0 \
+    --dataset.vcodec="$DATASET_VCODEC" \
     --dataset.repo_id=test_2025/rokae_record \
-    --dataset.root="/home/wanhao/Projects/lerobot_rokae/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
+    --dataset.root="/home/rokae/code/wzy/lerobot_rokae/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
     --dataset.num_episodes=10 \
     --dataset.episode_time_s=100 \
     --dataset.single_task="Grab the cube" \

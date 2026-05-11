@@ -12,3 +12,6 @@ class SpacemouseConfig(TeleoperatorConfig):
     # 上层参考笛卡尔速度上限（m/s 和 rad/s），会传入 InverseKinematicsProcessor
     trans_max_vel: float = 0.1
     rot_max_vel: float = 0.2
+    kinematics_preset: str = "fixed_ar_dual"
+    urdf_path: Optional[str] = None
+    end_effector_frame: Optional[str] = None
