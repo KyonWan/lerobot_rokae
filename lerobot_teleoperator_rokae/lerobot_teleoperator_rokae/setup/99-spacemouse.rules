@@ -1,0 +1,17 @@
+# 3Dconnexion SpaceMouse udev rules
+# Vendor ID 256f covers all 3Dconnexion devices (SpaceMouse Compact / Pro / Wireless / Enterprise, etc.)
+#
+# Rule 1: SpaceMouse via USB cable / USB receiver
+#   The hidraw device's parent chain contains a USB device exposing idVendor.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="256f", MODE="0666"
+
+# Rule 2: SpaceMouse Wireless via Bluetooth (uhid)
+#   Bluetooth HID devices are created under /devices/virtual/misc/uhid and have
+#   no USB ancestor, so ATTRS{idVendor} never matches. Match by KERNELS pattern
+#   instead. The KERNELS string format is "BUS:VID:PID.NNNN" where BUS=0005
+#   means BUS_BLUETOOTH and BUS=0003 means BUS_USB.
+KERNEL=="hidraw*", KERNELS=="0005:256F:*", MODE="0666"
+
+# Rule 3 (extra safety): match any HID transport (USB, Bluetooth, I2C, ...)
+#   for vendor 256F via the kernel device id.
+KERNEL=="hidraw*", KERNELS=="????:256F:*", MODE="0666"

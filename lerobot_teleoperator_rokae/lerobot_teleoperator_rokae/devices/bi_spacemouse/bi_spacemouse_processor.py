@@ -79,6 +79,7 @@ class BiInverseKinematicsProcessor(ProcessorStep):
 
     left_urdf_path: str = field(default_factory=default_rokae_urdf_path_left)
     right_urdf_path: str = field(default_factory=default_rokae_urdf_path_right)
+    # 须与各自 URDF 中末端 link 名一致；默认对齐 pink_ik_helpers 内置 AR5-5_07L-W4C4A2 包
     left_end_effector_frame: str = "AR5-5_07L-W4C4A2_tcp"
     right_end_effector_frame: str = "AR5-5_07R-W4C4A2_tcp"
     joint_vel_max: float = SNS_JOINT_VEL_MAX

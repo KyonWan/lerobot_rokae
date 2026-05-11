@@ -1,6 +1,9 @@
-# Rokae 单臂 OpenPI 推理桥接
+# Rokae OpenPI 推理桥接（单臂 / 双臂）
 
-将 Rokae 单臂机器人与 [OpenPI](https://github.com/Physical-Intelligence/openpi) 策略服务器对接。实现位于本目录的 `bridge.py`（`OpenPIPolicyBridge`）与 `cli.py`（命令行入口）。
+将 Rokae 机器人与 [OpenPI](https://github.com/Physical-Intelligence/openpi) 策略服务器对接。
+
+- 单臂实现：`bridge.py`（`OpenPIPolicyBridge`）+ `cli.py`
+- 双臂实现：`bi_bridge.py`（`BiOpenPIPolicyBridge`）+ `bi_cli.py`
 
 ---
 
@@ -9,6 +12,7 @@
 ```
 ┌─────────────────────────────────────┐       WebSocket        ┌──────────────────────────┐
 │  rokae-openpi / python -m …openpi.cli │ ─────────────────────► │  OpenPI Policy Server    │
+│  rokae-openpi-bi / python -m …bi_cli  │                        │  (pi0 / pi0-fast 等)     │
 │                                     │ ◄─────────────────────  │  (pi0 / pi0-fast 等)     │
 │  • 采集关节位置 & 图像               │   actions (chunk×dim)   └──────────────────────────┘
 │  • 组装 observation                 │
@@ -58,6 +62,8 @@ python -m rokae_python_wrapper.rokae_zmq_server \
 
 ## 快速开始
 
+### 单臂入口
+
 命令行入口（任选其一）：
 
 ```bash
@@ -65,7 +71,16 @@ rokae-openpi --help
 python -m rokae_policy_runtime.openpi.cli --help
 ```
 
-### 测试模式（不发送真实运动指令）
+### 双臂入口（bi_cli）
+
+命令行入口（任选其一）：
+
+```bash
+rokae-openpi-bi --help
+python -m rokae_policy_runtime.openpi.bi_cli --help
+```
+
+### 单臂测试模式（不发送真实运动指令）
 
 ```bash
 python -m rokae_policy_runtime.openpi.cli \
@@ -75,19 +90,51 @@ python -m rokae_policy_runtime.openpi.cli \
     --cam_wrist_serial 125322062165
 ```
 
-### 自主执行模式
+### 单臂自主执行模式
 
 ```bash
 python -m rokae_policy_runtime.openpi.cli \
     --mode autonomous \
-    --task_prompt "Pick and place the part." \
+    --task_prompt "Place 2 large blue metal parts → blue box, one by one. Then place 2 small silver metal parts → gray box." \
     --cam_high_serial 809512060572 \
     --cam_wrist_serial 125322062165 \
     --control_freq 30 \
-    --max_steps 500
+    --max_steps 10000
 ```
 
 至少需要 `--cam_high_serial` 或 `--cam_wrist_serial` 之一（与代码中校验一致）。
+
+### 双臂启动（bi_cli）
+
+```bash
+python3 -m rokae_policy_runtime.openpi.bi_cli \
+    --cam_high_serial CP2G85300022 \
+    --cam_left_wrist_serial 260322274865 \
+    --cam_right_wrist_serial 260322272759 \
+    --left_zmq_port 5555 \
+    --right_zmq_port 5556 \
+    --control_freq 30 \
+    --rate_of_inference 5 \
+    --log_level INFO
+```
+
+仅联调模型、不驱动真机时可加：
+
+```bash
+--mode test
+```
+
+希望保存推理前预处理图像（RGB 224x224）用于排查时可加：
+
+```bash
+--save_rgb_dir /home/rokae/code/wzy/lerobot_rokae/outputimage
+```
+
+希望打印更详细模型 I/O 摘要时可加：
+
+```bash
+--debug_model_io
+```
 
 ---
 
@@ -105,6 +152,31 @@ python -m rokae_policy_runtime.openpi.cli \
 | `--zmq_address` | `None` | 若指定完整 ZMQ 地址，则优先于 `--zmq_port` |
 | `--cam_high_serial` | `None` | 顶部 RealSense 序列号 → 观测里键名为 `external` |
 | `--cam_wrist_serial` | `None` | 腕部 RealSense 序列号 → 观测里键名为 `wrist` |
+
+### 双臂（`bi_cli`）常用参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--policy_host` | `localhost` | 策略服务器主机 |
+| `--policy_port` | `8000` | 策略服务器端口 |
+| `--mode` | `autonomous` | `autonomous` 真实执行，`test` 仅日志不运动 |
+| `--task_prompt` | 长文本默认值 | 传给策略的自然语言任务 |
+| `--max_steps` | `10000` | 单次 Episode 最大步数 |
+| `--control_freq` | `30` | 控制频率（Hz） |
+| `--left_zmq_port` | `5555` | 左臂 ZMQ 端口 |
+| `--right_zmq_port` | `5556` | 右臂 ZMQ 端口 |
+| `--left_zmq_address` | `None` | 左臂完整 ZMQ 地址（优先于端口） |
+| `--right_zmq_address` | `None` | 右臂完整 ZMQ 地址（优先于端口） |
+| `--cam_high_serial` | `None` | 顶部相机序列号（键名 `external`） |
+| `--cam_left_wrist_serial` | `None` | 左腕相机序列号（键名 `left_wrist`） |
+| `--cam_right_wrist_serial` | `None` | 右腕相机序列号（键名 `right_wrist`） |
+| `--action_chunk_size` | `50` | 每次推理返回的动作步数 |
+| `--rate_of_inference` | `30` | 每隔多少控制步重算一次策略 |
+| `--temporal_ensemble_coefficient` | `None` | Temporal ensemble 系数 |
+| `--save_rgb_dir` | `None` | 保存预处理后的 RGB 图像目录 |
+| `--debug_model_io` | `False` | 打印更多 action chunk 明细 |
+| `--log_level` | `INFO` | 日志级别 |
+| `--log_file` | `None` | 额外输出日志文件路径 |
 
 ---
 

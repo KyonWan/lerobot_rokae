@@ -3,6 +3,10 @@ Pink 7 轴 IK 与笛卡尔积分后逆解共用：URDF 路径、限位配置、`
 
 供单臂 `spacemouse_processor` 与双臂 `bi_spacemouse_processor` 使用。
 
+运动学预设（固定式双臂 AR5-5 07L/07R `*_tcp` vs 轮式双臂常用 `*_flan_link`）见
+`KINEMATICS_PRESET_*` 与 `resolve_dual_arm_kinematics` / `resolve_single_arm_kinematics`；
+URDF 仍优先由环境变量 `ROKAE_IK_URDF_PATH` / `ROKAE_IK_URDF_PATH_LEFT` / `ROKAE_IK_URDF_PATH_RIGHT` 覆盖。
+
 双臂 6 轴因 `rokae_algo` 全局单例，使用 `cr6_kinematics_session` 每帧 `cr_init`→求解→`de_init`；
 单臂 6 轴仍在处理器构造时一次 `cr_init`，不使用此会话。
 """
@@ -59,6 +63,76 @@ def default_rokae_urdf_path_left() -> str:
 
 def default_rokae_urdf_path_right() -> str:
     return _env_or_path("ROKAE_IK_URDF_PATH_RIGHT", _DEFAULT_ROKAE_URDF_RIGHT)
+
+
+# --- 运动学预设：切换机器人时改 CLI / 配置中的 kinematics_preset，无需改源码 ---
+KINEMATICS_PRESET_FIXED_AR_DUAL = "fixed_ar_dual"
+KINEMATICS_PRESET_WHEELED_AR_DUAL = "wheeled_ar_dual"
+
+_EE_FIXED_TCP_L = "AR5-5_07L-W4C4A2_tcp"
+_EE_FIXED_TCP_R = "AR5-5_07R-W4C4A2_tcp"
+# 轮式模型 link 名与固定式不同；若与现场 URDF 不一致，请在 teleop 配置里覆盖末端 frame。
+_EE_WHEELED_FLAN_L = "AR5-5_08L-W4C1C6-ZY2_flan_link"
+_EE_WHEELED_FLAN_R = "AR5-5_08R-W4C1C6-ZY2_flan_link"
+
+
+def list_kinematics_presets() -> list[str]:
+    """可供 `--teleop.kinematics_preset` 使用的预设 id。"""
+    return [KINEMATICS_PRESET_FIXED_AR_DUAL, KINEMATICS_PRESET_WHEELED_AR_DUAL]
+
+
+def _normalize_kinematics_preset(preset: str | None) -> str:
+    if preset is None or not str(preset).strip():
+        return KINEMATICS_PRESET_FIXED_AR_DUAL
+    return str(preset).strip().lower()
+
+
+def resolve_dual_arm_kinematics(preset: str | None) -> tuple[str, str, str, str]:
+    """
+    根据预设返回 (左 URDF, 右 URDF, 左末端 link, 右末端 link)。
+
+    URDF 路径始终走 ``default_rokae_urdf_path_left/right``（即仍可由环境变量覆盖）；
+    轮式场景通常需将 ``ROKAE_IK_URDF_PATH_LEFT`` / ``RIGHT`` 指向轮式描述包。
+    """
+    name = _normalize_kinematics_preset(preset)
+    if name in ("fixed", "fixed_ar", "fixed_dual"):
+        name = KINEMATICS_PRESET_FIXED_AR_DUAL
+    if name in ("wheeled", "wheeled_ar", "mobile_ar_dual"):
+        name = KINEMATICS_PRESET_WHEELED_AR_DUAL
+
+    l_urdf = default_rokae_urdf_path_left()
+    r_urdf = default_rokae_urdf_path_right()
+    if name == KINEMATICS_PRESET_FIXED_AR_DUAL:
+        return l_urdf, r_urdf, _EE_FIXED_TCP_L, _EE_FIXED_TCP_R
+    if name == KINEMATICS_PRESET_WHEELED_AR_DUAL:
+        return l_urdf, r_urdf, _EE_WHEELED_FLAN_L, _EE_WHEELED_FLAN_R
+
+    valid = ", ".join(list_kinematics_presets())
+    raise ValueError(
+        f"未知 kinematics_preset={preset!r}；请使用 {valid}，或在 teleop 中显式填写 URDF/末端 frame。"
+    )
+
+
+def resolve_single_arm_kinematics(preset: str | None) -> tuple[str, str]:
+    """
+    单臂：返回 (URDF, 末端 link)。URDF 为 ``default_rokae_urdf_path()``（可由 ``ROKAE_IK_URDF_PATH`` 覆盖）。
+    """
+    name = _normalize_kinematics_preset(preset)
+    if name in ("fixed", "fixed_ar", "fixed_dual"):
+        name = KINEMATICS_PRESET_FIXED_AR_DUAL
+    if name in ("wheeled", "wheeled_ar", "mobile_ar_dual"):
+        name = KINEMATICS_PRESET_WHEELED_AR_DUAL
+
+    urdf = default_rokae_urdf_path()
+    if name == KINEMATICS_PRESET_FIXED_AR_DUAL:
+        return urdf, _EE_FIXED_TCP_L
+    if name == KINEMATICS_PRESET_WHEELED_AR_DUAL:
+        return urdf, _EE_WHEELED_FLAN_R
+
+    valid = ", ".join(list_kinematics_presets())
+    raise ValueError(
+        f"未知 kinematics_preset={preset!r}；请使用 {valid}，或在 teleop 中显式填写 urdf_path / end_effector_frame。"
+    )
 
 
 @contextmanager
@@ -137,7 +211,10 @@ def pink_7axis_step(
         np.asarray(target_xyz, dtype=np.float64),
         quat_wxyz,
     )
-    joint_cost = np.linalg.norm(cart_vel) / trans_max_vel * POSTURE_COSTS_7.copy()
+    # joint_cost = np.linalg.norm(cart_vel) / trans_max_vel * POSTURE_COSTS_7.copy()
+    scale = np.linalg.norm(cart_vel) / trans_max_vel
+    joint_cost = max(scale, 0.01) * POSTURE_COSTS_7.copy()
+
     rk_ik.set_posture_costs(ik_state, joint_cost)
     ik_out = rk_ik.step_and_get(ik_state, float(control_period))
     q_solution = ik_out["q"].tolist()[:joint_num]

@@ -16,6 +16,7 @@ from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.rokae_processor
     CartPosBaseToRefObservationProcessor,
     CartPosRefToBaseProcessor,
     CartVelRefToBaseProcessor,
+    RokaeCameraCropObservationProcessor,
     SelectActionByCallbackMode,
 )
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.spacemouse.spacemouse_processor import (
@@ -32,12 +33,33 @@ from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.bi_rokae_pro
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.bi_spacemouse.bi_spacemouse_processor import (
     BiInverseKinematicsProcessor,
 )
-from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico.pico_processor import (
-    PicoBiInverseKinematicsProcessor,
+from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pink_ik_helpers import (
+    resolve_dual_arm_kinematics,
+    resolve_single_arm_kinematics,
 )
-from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico_single.pico_single_processor import (
-    PicoSingleInverseKinematicsProcessor,
-)
+try:
+    from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico.pico_processor import (
+        PicoBiInverseKinematicsProcessor,
+    )
+except ImportError as _pico_import_err:
+    logging.getLogger(__name__).warning(
+        "PicoBiInverseKinematicsProcessor unavailable (likely missing 'xrobotoolkit_teleop'): %s. "
+        "Pico teleop will be disabled but other teleop types still work.",
+        _pico_import_err,
+    )
+    PicoBiInverseKinematicsProcessor = None  # type: ignore
+
+try:
+    from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico_single.pico_single_processor import (
+        PicoSingleInverseKinematicsProcessor,
+    )
+except ImportError as _pico_single_import_err:
+    logging.getLogger(__name__).warning(
+        "PicoSingleInverseKinematicsProcessor unavailable (likely missing 'xrobotoolkit_teleop'): %s. "
+        "Pico single teleop will be disabled but other teleop types still work.",
+        _pico_single_import_err,
+    )
+    PicoSingleInverseKinematicsProcessor = None  # type: ignore
 
 
 def _callback_mode_value(cb) -> Optional[str]:
@@ -74,6 +96,38 @@ def _warn_if_rokae_vel_limits_exceeded(
     except Exception:
         # 防御性处理：如果无法导入 RokaeServer 或读取属性，忽略检查，不影响录制
         pass
+
+
+def _make_external_lower_half_crop_params(robot: Robot) -> dict[str, tuple[int, int, int, int]]:
+    """
+    Build crop params for the head camera (`external`) to keep only the lower half.
+    Returns empty dict when `external` camera is unavailable.
+    """
+    cameras_cfg = getattr(getattr(robot, "cfg", None), "cameras", {}) or {}
+    external_cfg = cameras_cfg.get("external")
+    if external_cfg is None:
+        return {}
+
+    height = getattr(external_cfg, "height", None)
+    width = getattr(external_cfg, "width", None)
+    if height is None or width is None:
+        # Fallback to feature shape when camera config doesn't expose width/height.
+        obs_features = getattr(robot, "observation_features", {}) or {}
+        shape = obs_features.get("external")
+        if not (isinstance(shape, tuple) and len(shape) == 3):
+            return {}
+        height, width, _ = shape
+
+    top = int(height) // 2
+    left = 0
+    crop_h = int(height) - top
+    crop_w = int(width)
+    return {"external": (top, left, crop_h, crop_w)}
+
+
+def _make_external_resize_params() -> dict[str, tuple[int, int]]:
+    """Resize head camera (`external`) output to fixed 640x480 (height, width)."""
+    return {"external": (480, 640)}
 
 
 def _make_bimanual_pipelines(
@@ -121,10 +175,15 @@ def _make_bimanual_pipelines(
     right_max_joint = getattr(cfg.robot, "right_max_joint", [])
 
     if cfg.teleop.type == "bi_spacemouse":
-    # 所有模式都使用相同的 BiInverseKinematicsProcessor
-    # 速度上限优先从 teleop 配置中读取，便于集中配置并与 RokaeServer 的硬限制做一致性检查
+        # BiInverseKinematicsProcessor；速度上限与末端 frame 从 teleop 配置读取
         trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
         rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
+        _preset = getattr(cfg.teleop, "kinematics_preset", "fixed_ar_dual")
+        _l_urdf, _r_urdf, _l_ee, _r_ee = resolve_dual_arm_kinematics(_preset)
+        _l_urdf_f = getattr(cfg.teleop, "left_urdf_path", None) or _l_urdf
+        _r_urdf_f = getattr(cfg.teleop, "right_urdf_path", None) or _r_urdf
+        _l_ee_f = getattr(cfg.teleop, "left_end_effector_frame", None) or _l_ee
+        _r_ee_f = getattr(cfg.teleop, "right_end_effector_frame", None) or _r_ee
         teleop_action_processor_steps = [
             BiInverseKinematicsProcessor(
                 left_joint_num=left_joint_num,
@@ -144,9 +203,17 @@ def _make_bimanual_pipelines(
                 right_tool_end_pos=right_tool_end_pos,
                 right_tool_ref_pos=right_tool_ref_pos,
                 right_base_frame_in_world=right_base_frame_in_world,
+                left_urdf_path=_l_urdf_f,
+                right_urdf_path=_r_urdf_f,
+                left_end_effector_frame=_l_ee_f,
+                right_end_effector_frame=_r_ee_f,
             )
         ]
     elif cfg.teleop.type == "pico":
+        if PicoBiInverseKinematicsProcessor is None:
+            raise ImportError(
+                "PicoBiInverseKinematicsProcessor is unavailable; install 'xrobotoolkit_teleop' to use pico teleop."
+            )
         # 所有模式都使用相同的 PicoBiInverseKinematicsProcessor
         trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
         rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
@@ -253,6 +320,10 @@ def _make_single_arm_pipelines(
         # 速度上限优先从 teleop 配置中读取
         trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
         rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
+        _preset = getattr(cfg.teleop, "kinematics_preset", "fixed_ar_dual")
+        _urdf, _ee = resolve_single_arm_kinematics(_preset)
+        _urdf_f = getattr(cfg.teleop, "urdf_path", None) or _urdf
+        _ee_f = getattr(cfg.teleop, "end_effector_frame", None) or _ee
         teleop_action_processor_steps = [
             InverseKinematicsProcessor(
                 joint_num=joint_num,
@@ -265,9 +336,15 @@ def _make_single_arm_pipelines(
                 tool_end_pos=getattr(robot, "tool_end_pos", None),
                 tool_ref_pos=getattr(robot, "tool_ref_pos", None),
                 base_frame_in_world=getattr(robot, "base_frame_in_world", None),
+                urdf_path=_urdf_f,
+                end_effector_frame=_ee_f,
             )
         ]
     elif cfg.teleop.type == "pico_single":
+        if PicoSingleInverseKinematicsProcessor is None:
+            raise ImportError(
+                "PicoSingleInverseKinematicsProcessor is unavailable; install 'xrobotoolkit_teleop' to use pico_single teleop."
+            )
         trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
         rot_max_vel = getattr(cfg.teleop, "rot_max_vel")
         teleop_action_processor_steps = [
@@ -334,6 +411,14 @@ def _make_single_arm_pipelines(
             base_frame_in_world=getattr(robot, "base_frame_in_world", None),
         )
     ]
+    crop_params = _make_external_lower_half_crop_params(robot)
+    if crop_params:
+        robot_observation_processor_steps.append(
+            RokaeCameraCropObservationProcessor(
+                camera_crop_params=crop_params,
+                camera_resize_params=_make_external_resize_params(),
+            )
+        )
     robot_observation_processor = RobotProcessorPipeline[RobotObservation, RobotObservation](
         steps=robot_observation_processor_steps,
         to_transition=observation_to_transition,
@@ -387,7 +472,7 @@ def maybe_reset_rokae_processors(
             processor_step = step
             is_bimanual = True
             break
-        if isinstance(step, PicoBiInverseKinematicsProcessor):
+        if PicoBiInverseKinematicsProcessor is not None and isinstance(step, PicoBiInverseKinematicsProcessor):
             processor_step = step
             is_bimanual = True
             break
@@ -395,7 +480,7 @@ def maybe_reset_rokae_processors(
             processor_step = step
             is_bimanual = False
             break
-        if isinstance(step, PicoSingleInverseKinematicsProcessor):
+        if PicoSingleInverseKinematicsProcessor is not None and isinstance(step, PicoSingleInverseKinematicsProcessor):
             processor_step = step
             is_bimanual = False
             break
