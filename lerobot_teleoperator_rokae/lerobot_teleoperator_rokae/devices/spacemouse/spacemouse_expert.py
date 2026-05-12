@@ -1,7 +1,8 @@
 import threading
 import pyspacemouse
 import numpy as np
-from typing import Tuple, Optional
+from typing import Tuple
+from easyhid import Enumeration
 
 
 class SpaceMouseExpert:
@@ -15,11 +16,27 @@ class SpaceMouseExpert:
         Args:
             device_index: device_index for pyspacemouse (0, 1, ...)
         """
-        self.device_index = device_index
+        self.device_index = int(device_index)
 
-        # ⚠️ 关键：保存 device 对象
-        self.device = pyspacemouse.open(
-            device_index=device_index,
+        supported_devices = self._list_supported_hid_devices()
+        if not supported_devices:
+            raise RuntimeError("No connected or supported SpaceMouse devices found.")
+
+        if self.device_index < 0 or self.device_index >= len(supported_devices):
+            raise ValueError(
+                f"Invalid SpaceMouse index {self.device_index}. "
+                f"Available indices are 0..{len(supported_devices) - 1}. "
+                "This index maps to the supported HID device list order."
+            )
+        selected = supported_devices[self.device_index]
+        print(
+            f"SpaceMouse index={self.device_index} -> path={selected['path']} "
+            f"product={selected['product']}"
+        )
+
+        # Open by hidraw path to avoid pyspacemouse same-model index fallback behavior.
+        self.device = pyspacemouse.open_by_path(
+            selected["path"],
             nonblocking=True,
         )
 
@@ -37,6 +54,32 @@ class SpaceMouseExpert:
             daemon=True,
         )
         self.thread.start()
+
+    @staticmethod
+    def _list_supported_hid_devices() -> list[dict]:
+        hid = Enumeration()
+        specs = pyspacemouse.get_supported_devices()
+        supported_vid_pid = {(vendor_id, product_id) for _, vendor_id, product_id in specs}
+
+        devices = []
+        seen_paths = set()
+        for hid_dev in hid.find():
+            key = (hid_dev.vendor_id, hid_dev.product_id)
+            if key not in supported_vid_pid:
+                continue
+            path = str(hid_dev.path)
+            if path in seen_paths:
+                continue
+            seen_paths.add(path)
+            devices.append(
+                {
+                    "path": path,
+                    "product": hid_dev.product_string,
+                    "vendor_id": hid_dev.vendor_id,
+                    "product_id": hid_dev.product_id,
+                }
+            )
+        return devices
 
     def _read_spacemouse(self):
         while True:

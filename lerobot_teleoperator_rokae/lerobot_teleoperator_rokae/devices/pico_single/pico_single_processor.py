@@ -14,7 +14,7 @@ try:
 except ImportError:
     rokae_algo = None
 
-from ..spacemouse.spacemouse_processor import _transform_to_quat_wfirst
+from ..cartesian_ik_helpers import transform_to_quat_wfirst as _transform_to_quat_wfirst
 from lerobot_robot_rokae.lerobot_robot_rokae.utils.transform_utils import (
     compute_base_ref_transform,
     inv_homogeneous,

@@ -52,12 +52,30 @@ cd ..
 
 ### 4. 安装 Rokae 机器人集成
 
+使用 SpaceMouse（`pyspacemouse`）时，Linux 上需要系统级 **HIDAPI**（pip 无法提供），请先安装：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libhidapi-dev libhidapi-hidraw0
+```
+
+7 轴笛卡尔逆解依赖 **Pink**（PyPI 包名 **`pin-pink`**，勿装错成同名 `pink`）、**Pinocchio**（经 `pin-pink` 依赖的 `pin`）与 **qpsolvers[open_source_solvers]**；这些已写在 `rokae_python_wrapper` 与 `lerobot_teleoperator_rokae` 的 `pyproject.toml` 中，随下面 `pip install -e` 一并安装。
+
+建议先安装 `rokae_python_wrapper`（提供运动学与 IK），再安装遥操作包：
+
 ```bash
 pip install -e lerobot_robot_rokae
+cd rokae_python_wrapper
+pip install -e .
+cd ..
 pip install -e lerobot_teleoperator_rokae
 ```
 
+更多说明见 [lerobot_teleoperator_rokae/README.md](lerobot_teleoperator_rokae/README.md)。
+
 ### 5. 安装 Rokae Python Wrapper
+
+若你已在上一节执行过 `pip install -e rokae_python_wrapper`，可跳过本节；否则：
 
 ```bash
 cd rokae_python_wrapper
