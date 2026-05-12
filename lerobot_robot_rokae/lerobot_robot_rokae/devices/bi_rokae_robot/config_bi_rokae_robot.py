@@ -32,9 +32,9 @@ class BiRokaeRobotConfig(RobotConfig):
     control_loop_fps: int | None = None
 
     # Control modes
-    left_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDNACE
+    left_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
     left_callback_mode: CallbackMode = CallbackMode.CART_VEL
-    right_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDNACE
+    right_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
     right_callback_mode: CallbackMode = CallbackMode.CART_VEL
 
     # rokae_algo 运动学初始化参数（joint_pos 模式下 BiInverseKinematicsProcessor 使用）
