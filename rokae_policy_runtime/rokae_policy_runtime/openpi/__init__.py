@@ -1,5 +1,5 @@
-"""OpenPI 策略运行时：桥接与 CLI。"""
+"""OpenPI 策略运行时：异步桥接与 CLI。"""
 
-from .bridge import OpenPIPolicyBridge
+from .async_bridge import OpenPIPolicyBridge
 
 __all__ = ["OpenPIPolicyBridge"]

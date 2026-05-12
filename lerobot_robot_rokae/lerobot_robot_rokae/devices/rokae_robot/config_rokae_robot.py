@@ -8,9 +8,9 @@ from enum import Enum
 
 class ControlMode(str, Enum):
     JOINT_POSITION = "joint_position"
-    CARTETIAN_POSITION = "cartesian_position"
+    CARTESIAN_POSITION = "cartesian_position"
     JOINT_IMPEDNACE = "joint_impedance"
-    CARTESIAN_IMPEDNACE = "cartesian_impedance"
+    CARTESIAN_IMPEDANCE = "cartesian_impedance"
 
 
 class CallbackMode(str, Enum):
@@ -24,7 +24,7 @@ class CallbackMode(str, Enum):
 class RokaeRobotConfig(RobotConfig):
     # basic params
     joint_num: int = 6
-    # control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDNACE
+    # control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
     # callback_mode: CallbackMode = CallbackMode.CART_VEL
 
     control_mode: ControlMode = ControlMode.JOINT_POSITION
