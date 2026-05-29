@@ -23,35 +23,15 @@ width: 640, height: 480, fps: 60, use_depth: false}, \
 right_wrist: {type: intelrealsense, serial_number_or_name: '352122272829', \
 width: 640, height: 480, fps: 60, use_depth: false}}"
 
-# rokae_algo 运动学参数（7 轴 cross_wrist7）
-# 左臂：直接沿用单臂 rokae_record.sh 中的配置（单位已是 m / rad）
-LEFT_RBV_M="[0.0,0.0,0.0,0.0,0.0,0.1745,0.0,0.0,0.314,0.01,0.0,0.0,-0.01,0.0,0.272,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.097]"
-LEFT_MIN_JOINT_RAD="[-3.106686,-2.094395,-3.106686,-1.047198,-3.106686,-1.047198,-1.047198]"
-LEFT_MAX_JOINT_RAD="[3.106686,2.094395,3.106686,2.530727,3.106686,1.047198,1.047198]"
+# 6 轴双臂时填写（与 start_rokae_*_server.sh 中 ROBOT_IP 一致；7 轴 Pink 可不填）
+LEFT_ROBOT_IP="192.168.2.180"
+RIGHT_ROBOT_IP="192.168.71.160"
 
-# 右臂：根据 ROBOT_DIMENSIONS（单位 mm）和 JOINT_RANGE_*_CUSTOMIZE（单位 deg）换算
-# ROBOT_DIMENSIONS:
-#   [0.0,0.0,0.0,0.0,0.0,174.5,0.0,0.0,314.0,10.0,0.0,0.0,-10.0,0.0,272.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,97.0]
-#   将长度部分除以1000得到 m，与 LEFT_RBV_M 数值一致：
-RIGHT_RBV_M="[0.0,0.0,0.0,0.0,0.0,0.1745,0.0,0.0,0.314,0.01,0.0,0.0,-0.01,0.0,0.272,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.097]"
-
-# JOINT_RANGE_MIN_CUSTOMIZE: [-178, -120, -178, -60, -178, -60, -60]
-# JOINT_RANGE_MAX_CUSTOMIZE: [178, 120, 178, 145, 178, 60, 60]
-# 换算成弧度后同样与左臂一致：
-RIGHT_MIN_JOINT_RAD="[-3.106686,-2.094395,-3.106686,-1.047198,-3.106686,-1.047198,-1.047198]"
-RIGHT_MAX_JOINT_RAD="[3.106686,2.094395,3.106686,2.530727,3.106686,1.047198,1.047198]"
-
-# --- Teleop / Pink 双臂 IK（kinematics_preset，rokae_record_plugin + pink_ik_helpers）---
-# --teleop.kinematics_preset
-#   wheeled_ar_dual    固定式双臂：默认 URDF 为包内 AR5-5_07L / 07R，末端 link 为 *_tcp。
-#   fixed_ar_dual  轮式/整机双臂：默认末端为 08* 系列的 *_flan_link；须配合「整机」URDF。
-# 环境变量（未写 --teleop.left/right_urdf_path 时由 default_rokae_urdf_path_* 读取）：
-#   ROKAE_IK_URDF_PATH_LEFT / ROKAE_IK_URDF_PATH_RIGHT 覆盖默认 .urdf 路径。
-# 可选 CLI 覆盖（写上则覆盖预设里解析出的路径/末端名；必须与对应 URDF 里 <link name> 一致）：
-#   --teleop.left_urdf_path / right_urdf_path
-#   --teleop.left_end_effector_frame / right_end_effector_frame
-# 注意：仓库内 07L/07R 单机描述只有 *_tcp，没有 *_flan_link；用单机 URDF 时应用 fixed_ar_dual，
-#       或像下面这样显式写 *_tcp 与 07 urdf（不要写 URDF 中不存在的 link 名）。
+# --- Teleop / IK（6 轴 xCore model；7 轴 Pink 自动解析 URDF）---
+# rokae_record_plugin 在创建 pipeline 时对各臂调用 get_robot_info().type，
+# 在 rokae_python_wrapper/rokae_kinematics/rokae_urdf/ 下查找 {type}.urdf，
+# 并从 URDF 解析末端 link（优先 *_tcp，其次 *_flan_link）。找不到机型 URDF 会报错。
+# 请保证 ZMQ server 已连接且 robotInfo.type 与 rokae_urdf 内文件名一致（如 AR5-5_07L-W4C4A2）。
 # ------------------------------------------------------------------------------------
 
 taskset -c 9 python -m lerobot.scripts.lerobot_record \
@@ -61,29 +41,20 @@ taskset -c 9 python -m lerobot.scripts.lerobot_record \
     --robot.right_zmq_port=5556 \
     --robot.left_joint_num=7 \
     --robot.right_joint_num=7 \
-    --robot.left_control_mode=joint_impedance \
+    --robot.left_control_mode=joint_position \
     --robot.left_callback_mode=joint_pos \
-    --robot.right_control_mode=joint_impedance \
+    --robot.right_control_mode=joint_position \
     --robot.right_callback_mode=joint_pos \
-    --robot.left_rbv="$LEFT_RBV_M" \
-    --robot.left_min_joint="$LEFT_MIN_JOINT_RAD" \
-    --robot.left_max_joint="$LEFT_MAX_JOINT_RAD" \
-    --robot.right_rbv="$RIGHT_RBV_M" \
-    --robot.right_min_joint="$RIGHT_MIN_JOINT_RAD" \
-    --robot.right_max_joint="$RIGHT_MAX_JOINT_RAD" \
+    --robot.left_robot_ip="$LEFT_ROBOT_IP" \
+    --robot.right_robot_ip="$RIGHT_ROBOT_IP" \
     --teleop.type=bi_spacemouse \
     --teleop.left_device_index=0 \
     --teleop.right_device_index=1 \
     --dataset.repo_id=test_2025/bi_rokae_record \
-    --dataset.root="/home/rokae/dataset/gripper_parts_single_test" \
+    --dataset.root="/home/wanhao/Documents/datasets/test_$(date +"%Y%m%d_%H%M%S")" \
     --dataset.num_episodes=100 \
     --dataset.episode_time_s=300 \
     --dataset.single_task="Put the two white parts into the gray box." \
     --dataset.push_to_hub=False \
-    --display_data=False \
-    --robot.cameras="$CAMERAS_CONFIG" \
-    --teleop.kinematics_preset=wheeled_ar_dual \
-    --teleop.left_end_effector_frame=AR5-5_07L-W4C4A2_tcp \
-    --teleop.right_end_effector_frame=AR5-5_07R-W4C4A2_tcp \
-    --teleop.left_urdf_path=/home/rokae/Projects/lerobot_rokae/rokae_python_wrapper/rokae_kinematics/rokae_urdf/AR5-5_07L-W4C4A2_description/urdf/AR5-5_07L-W4C4A2.urdf \
-    --teleop.right_urdf_path=/home/rokae/Projects/lerobot_rokae/rokae_python_wrapper/rokae_kinematics/rokae_urdf/AR5-5_07R-W4C4A2_description/urdf/AR5-5_07R-W4C4A2.urdf
+    --display_data=False 
+    # --robot.cameras="$CAMERAS_CONFIG"

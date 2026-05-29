@@ -170,6 +170,7 @@ chmod +x scripts/rokae_record.sh
 ```bash
 python -m lerobot.scripts.lerobot_record \
   --robot.type=rokae_robot \
+  --robot.robot_ip=<你的机器人IP> \
   --teleop.type=spacemouse \
   --dataset.repo_id=Rokae/lerobot_test_1 \
   --dataset.root="./datasets" \
@@ -183,6 +184,7 @@ python -m lerobot.scripts.lerobot_record \
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
+| `--robot.robot_ip` | 6 轴 SpaceMouse 使用 xCore model 逆解时用于初始化 SDK model；7 轴 Pink 可不填 | `""` |
 | `--display_data` | 是否在 Rerun 中显示采集数据 | `false` |
 | `--log_slow_loop_periodically` | 是否每秒打印一次控制循环耗时（用于监控帧率稳定性） | `false` |
 **使用 Pico 进行单臂数据采集：**
@@ -203,9 +205,6 @@ python -m lerobot.scripts.lerobot_record \
     --robot.joint_num=7 \
     --robot.control_mode=joint_impedance \
     --robot.callback_mode=joint_pos \
-    --robot.rbv="$RBV_M" \
-    --robot.min_joint="$MIN_JOINT_RAD" \
-    --robot.max_joint="$MAX_JOINT_RAD" \
     --teleop.type=pico_single \
     --teleop.side='right' \
     --teleop.R_headset_world='[90.0, 0.0, 180.0]' \
@@ -230,6 +229,7 @@ python -m lerobot.scripts.lerobot_record \
 ```bash
 python -m lerobot.scripts.lerobot_record \
   --robot.type=rokae_robot \
+  --robot.robot_ip=<你的机器人IP> \
   --teleop.type=spacemouse \
   --robot.cameras="{laptop: {type: intelrealsense, serial_number_or_name: 838212074037, width: 640, height: 480, fps: 60}}" \
   --dataset.repo_id=Rokae/lerobot_test_1 \

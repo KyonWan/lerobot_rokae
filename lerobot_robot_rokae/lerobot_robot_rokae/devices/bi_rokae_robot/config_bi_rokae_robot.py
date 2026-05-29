@@ -33,17 +33,13 @@ class BiRokaeRobotConfig(RobotConfig):
 
     # Control modes
     left_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    left_callback_mode: CallbackMode = CallbackMode.CART_VEL
+    left_callback_mode: CallbackMode = CallbackMode.JOINT_POS
     right_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    right_callback_mode: CallbackMode = CallbackMode.CART_VEL
+    right_callback_mode: CallbackMode = CallbackMode.JOINT_POS
 
-    # rokae_algo 运动学初始化参数（joint_pos 模式下 BiInverseKinematicsProcessor 使用）
-    left_rbv: list[float] = field(default_factory=list)
-    right_rbv: list[float] = field(default_factory=list)
-    left_min_joint: list[float] = field(default_factory=list)
-    left_max_joint: list[float] = field(default_factory=list)
-    right_min_joint: list[float] = field(default_factory=list)
-    right_max_joint: list[float] = field(default_factory=list)
+    # 6 轴 xCore model 逆解（每臂 robot_ip，与 ZMQ 控制独立）
+    left_robot_ip: str = ""
+    right_robot_ip: str = ""
 
     # Cameras (shared between both arms)
     cameras: dict[str, CameraConfig] = field(default_factory=dict)

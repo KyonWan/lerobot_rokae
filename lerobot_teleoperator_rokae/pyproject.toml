@@ -6,11 +6,15 @@ requires-python = ">=3.10"
 
 dependencies = [
     "lerobot",
+    "rokae_python_wrapper",
     "pyspacemouse",
-    # 与 `pink_ik_helpers` / SpaceMouse 笛卡尔模式共用 `rokae_python_wrapper.rokae_ik_interface`（Pink + QP）
     "pin-pink",
     "qpsolvers[open_source_solvers]",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lerobot_teleoperator_rokae*"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

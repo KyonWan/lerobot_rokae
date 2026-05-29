@@ -15,7 +15,7 @@ sudo apt-get install -y libhidapi-dev libhidapi-hidraw0
 
 ## Python 依赖（Pink / 逆解）
 
-单臂与双臂的 **笛卡尔/7 轴逆解** 通过 `rokae_python_wrapper.rokae_kinematics.rokae_ik_interface` 使用 [Pink](https://github.com/stephane-caron/pink)、[qpsolvers](https://github.com/stephane-caron/qpsolvers)（建议 `qpsolvers[open_source_solvers]` 以安装 DAQP 等开源 QP 求解器）以及 Pinocchio（由 PyPI 包 `pin-pink` 依赖的 `pin` 提供；代码中为 `import pinocchio`）。
+本包只负责 **遥操作设备输入**（SpaceMouse / Pico 等）；笛卡尔积分与逆解在 **`rokae_python_wrapper.rokae_kinematics`**（`cartesian_ik_solver`、`urdf_presets`、`action_fields` 等）：7 轴用 [Pink](https://github.com/stephane-caron/pink)，6 轴用 xCore `model.getJointPos`，不重复实现 IK 逻辑。
 
 注意：在 PyPI 上请安装 **`pin-pink`**（`pip install pin-pink`），**不要**安装名为 `pink` 的 PyPI 包——那是另一个无关项目；安装后仍使用 `import pink`。
 
@@ -37,5 +37,5 @@ pip install "qpsolvers[open_source_solvers]"
 
 ## 与仓库其他包的关系
 
-- **必选**：`lerobot`、`lerobot_robot_rokae`（变换工具等）、`rokae_python_wrapper`（运动学与 7 轴 IK）。
+- **必选**：`lerobot`、`lerobot_robot_rokae`、`rokae_python_wrapper`（`rokae_kinematics` 运动学与 IK；robot 包的 `transform_utils` 为其 re-export）。
 - **仅 Pico 遥操作**：另需按仓库根 `README.md` 安装 XRoboToolkit PC 服务与头显端应用。

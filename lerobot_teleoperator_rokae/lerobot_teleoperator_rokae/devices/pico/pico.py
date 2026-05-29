@@ -8,11 +8,7 @@ import atexit
 import re
 import importlib
 from lerobot.teleoperators.teleoperator import Teleoperator
-# from .config_pico import PicoConfig
-try:
-    from .config_pico import PicoConfig
-except ImportError:
-    from config_pico import PicoConfig
+from .config_pico import PicoConfig
 from xrobotoolkit_teleop.common.xr_client import XrClient
 from xrobotoolkit_teleop.hardware.interface.universal_robots import CONTROLLER_DEADZONE
 import numpy as np

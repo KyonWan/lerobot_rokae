@@ -16,7 +16,6 @@ class ControlMode(str, Enum):
 class CallbackMode(str, Enum):
     JOINT_POS = "joint_pos"
     CART_POS = "cart_pos"
-    CART_VEL = "cart_vel"
 
 
 @RobotConfig.register_subclass("rokae_robot")
@@ -25,8 +24,6 @@ class RokaeRobotConfig(RobotConfig):
     # basic params
     joint_num: int = 6
     # control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    # callback_mode: CallbackMode = CallbackMode.CART_VEL
-
     control_mode: ControlMode = ControlMode.JOINT_POSITION
     callback_mode: CallbackMode = CallbackMode.JOINT_POS
 
@@ -47,8 +44,5 @@ class RokaeRobotConfig(RobotConfig):
     # cameras
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
-    # rokae_algo 运动学初始化参数（joint_pos 模式下 InverseKinematicsProcessor 使用）
-    # 6 轴使用 cr_init(rbv, min_joint, max_joint)，7 轴使用 cross_wrist7_init(rbv, min_joint, max_joint)
-    rbv: list[float] = field(default_factory=list)           # 机器人描述参数（RD 参数）
-    min_joint: list[float] = field(default_factory=list)     # 关节下限（弧度）
-    max_joint: list[float] = field(default_factory=list)     # 关节上限（弧度）
+    # 6 轴 xCore model 逆解（ArmPipeline）：与 ZMQ 控制独立，仅用于初始化 model
+    robot_ip: str = ""

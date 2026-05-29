@@ -60,6 +60,9 @@ class RokaeRobot(Robot):
         logger.info(f"Using ZMQ client: {zmq_address}")
 
         tool_info = self.client.get_tool_info()
+        robot_info = self.client.get_robot_info()
+        self.robot_info = robot_info
+        self.robot_type = str(robot_info.get("type"))
         self.tool_info = tool_info
         self.tool_mass = float(tool_info.get("mass"))
         self.tool_center_of_mass = np.array(tool_info.get("center_of_mass"), dtype=np.float64)
@@ -150,9 +153,11 @@ class RokaeRobot(Robot):
             elif self.cfg.callback_mode == CallbackMode.CART_POS:
                 robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)])
                 action_type = "cart_pos"
-            else:  # CART_VEL
-                robot_action = np.array([action[f"cart_vel{i}"] for i in range(6)])
-                action_type = "cart_vel"
+            else:
+                raise ValueError(
+                    f"Unsupported callback_mode {self.cfg.callback_mode!r}; "
+                    "use joint_pos or cart_pos."
+                )
             gripper_pos = float(action["gripper_pos"])
             state = self.client.send_action_and_get_state(
                 action_type=action_type,
@@ -177,9 +182,11 @@ class RokaeRobot(Robot):
         elif self.cfg.callback_mode == CallbackMode.CART_POS:
             robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)])
             self.client.set_target_cart_pos(robot_action, interpolate_time=self.interpolate_time)
-        elif self.cfg.callback_mode == CallbackMode.CART_VEL:
-            robot_action = np.array([action[f"cart_vel{i}"] for i in range(6)])
-            self.client.set_target_cart_vel(robot_action)
+        else:
+            raise ValueError(
+                f"Unsupported callback_mode {self.cfg.callback_mode!r}; "
+                "use joint_pos or cart_pos."
+            )
 
         if action["gripper_pos"] == 0 and self.gripper_pos_cur != 0:
             self.client.close_gripper()

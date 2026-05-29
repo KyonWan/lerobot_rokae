@@ -29,13 +29,9 @@ width: 640, height: 480, fps: 60, use_depth: false}}"
 # left_wrist: {type: intelrealsense, serial_number_or_name: '260322274865', \
 # width: 640, height: 480, fps: 60, use_depth: false, cpu_core: 6}}"
 
-echo "[bi_rokae_record] dataset.vcodec=$DATASET_VCODEC"
-MIN_JOINT_RAD="[-2.93215, -1.91986, -2.93215, -0.872665, -2.93215, -0.872665, -0.872665]"
-MAX_JOINT_RAD="[2.93215, 1.91986, 2.93215, 2.35619, 2.93215, 0.872665, 0.872665]"
-RBV_M="[0.0,0.0,0.0,0.0,0.0,0.1745,0.0,0.0,0.314,0.01,0.0,0.0,-0.01,0.0,0.272,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.097]"
-MIN_JOINT_RAD="[-3.106686,-2.094395,-3.106686,-1.047198,-3.106686,-1.047198,-1.047198]"
-MAX_JOINT_RAD="[3.106686,2.094395,3.106686,2.530727,3.106686,1.047198,1.047198]"
-# 关节限位（弧度），由角度换算：JOINT_RANGE_MIN/MAX_CUSTOMIZE 度 -> 弧度
+echo "[rokae_record] dataset.vcodec=$DATASET_VCODEC"
+# 6 轴时必填（与 rokae server 脚本 ROBOT_IP 一致）；7 轴 Pink 可不填
+ROBOT_IP="192.168.2.180"
 
 
 taskset -c 0 python -m lerobot.scripts.lerobot_record \
@@ -44,14 +40,12 @@ taskset -c 0 python -m lerobot.scripts.lerobot_record \
     --robot.joint_num=7 \
     --robot.control_mode=joint_position \
     --robot.callback_mode=joint_pos \
-    --robot.rbv="$RBV_M" \
-    --robot.min_joint="$MIN_JOINT_RAD" \
-    --robot.max_joint="$MAX_JOINT_RAD" \
+    --robot.robot_ip="$ROBOT_IP" \
     --teleop.type=spacemouse \
     --teleop.device_index=0 \
     --dataset.vcodec="$DATASET_VCODEC" \
     --dataset.repo_id=test_2025/rokae_record \
-    --dataset.root="/home/rokae/code/wzy/lerobot_rokae/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
+    --dataset.root="/home/wanhao/Documents/datasets/test_$(date +"%Y%m%d_%H%M%S")" \
     --dataset.num_episodes=10 \
     --dataset.episode_time_s=100 \
     --dataset.single_task="Grab the cube" \

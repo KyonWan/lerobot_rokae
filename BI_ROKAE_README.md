@@ -146,6 +146,8 @@ python -m lerobot.scripts.lerobot_record \
     --robot.left_callback_mode=joint_pos \
     --robot.right_control_mode=joint_position \
     --robot.right_callback_mode=joint_pos \
+    --robot.left_robot_ip=192.168.71.161 \
+    --robot.right_robot_ip=192.168.71.160 \
     --teleop.type=bi_spacemouse \
     --teleop.left_device_index=0 \
     --teleop.right_device_index=1 \
@@ -181,12 +183,6 @@ python -m lerobot.scripts.lerobot_record \
     --robot.left_callback_mode=joint_pos \
     --robot.right_control_mode=joint_position \
     --robot.right_callback_mode=joint_pos \
-    --robot.left_rbv="$LEFT_RBV_M" \
-    --robot.left_min_joint="$LEFT_MIN_JOINT_RAD" \
-    --robot.left_max_joint="$LEFT_MAX_JOINT_RAD" \
-    --robot.right_rbv="$RIGHT_RBV_M" \
-    --robot.right_min_joint="$RIGHT_MIN_JOINT_RAD" \
-    --robot.right_max_joint="$RIGHT_MAX_JOINT_RAD" \
     --teleop.type=pico \
     --dataset.repo_id=test_2026/bi_rokae_record \
     --dataset.root="/home/rokae/Projects/datasets" \
@@ -203,6 +199,7 @@ python -m lerobot.scripts.lerobot_record \
 - `--teleop.type=bi_spacemouse`: 使用双SpaceMouse遥操作器
 - `--robot.left_zmq_port=5555`: 左臂ZMQ端口
 - `--robot.right_zmq_port=5556`: 右臂ZMQ端口
+- `--robot.left_robot_ip` / `--robot.right_robot_ip`: 6 轴 SpaceMouse 使用 xCore model 逆解时用于初始化 SDK model；7 轴 Pink 可不填
 - `--teleop.type=bi_spacemouse`: 使用双 SpaceMouse双臂遥操作
 - `--teleop.left_device_index=0`: 左臂SpaceMouse设备索引
 - `--teleop.right_device_index=1`: 右臂SpaceMouse设备索引
@@ -260,29 +257,23 @@ python -m lerobot.scripts.lerobot_record \
 ```
 lerobot_teleoperator_rokae/
   └── lerobot_teleoperator_rokae/
+      ├── ik/                     # 逆解 Processor（SpaceMouse / Pico，单双臂共用 arms）
+      │   ├── spacemouse_ik_processor.py
+      │   └── pico_ik_processor.py
       └── devices/
-          ├── spacemouse/          # 单SpaceMouse（已修改支持设备索引）
-          ├── pico_single/         # Pico 单臂遥操作（新增）
-          ├── bi_spacemouse/       # 双SpaceMouse（新增）
-              ├── __init__.py
-              ├── config_bi_spacemouse.py
-              ├── bi_spacemouse_processor.py
-              └── bi_spacemouse.py
-          └── pico/                # Pico 双臂遥操作（新增）
-              ├── __init__.py
-              ├── config_pico.py
-              ├── pico_processor.py
-              └── pico.py
+          ├── spacemouse/          # 单 SpaceMouse
+          ├── bi_spacemouse/       # 双 SpaceMouse
+          ├── pico_single/         # Pico 单臂
+          └── pico/                # Pico 双臂
 
 lerobot_robot_rokae/
   └── lerobot_robot_rokae/
       └── devices/
-          ├── rokae_robot/    # 单臂机器人（已修改支持端口配置）
-          └── bi_rokae_robot/      # 双臂机器人（新增）
+          ├── rokae_robot/    # 单臂机器人；笛卡尔 processor 见 cartesian_processors.py
+          └── bi_rokae_robot/      # 双臂机器人（组合两个 RokaeRobot）
               ├── __init__.py
               ├── config_bi_rokae_robot.py
-              ├── bi_rokae_robot.py
-              └── bi_rokae_processor.py
+              └── bi_rokae_robot.py
 
 rokae_python_wrapper/
   └── scripts/                     # 启动脚本
