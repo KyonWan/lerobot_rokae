@@ -47,7 +47,6 @@ class BiRokaeRobot(Robot):
         # Create left arm config
         left_arm_config = RokaeRobotConfig(
             id=f"{config.id}_left" if config.id else None,
-            joint_num=config.left_joint_num,
             control_mode=config.left_control_mode,
             callback_mode=config.left_callback_mode,
             zmq_address=left_zmq_address,
@@ -58,7 +57,6 @@ class BiRokaeRobot(Robot):
         # Create right arm config
         right_arm_config = RokaeRobotConfig(
             id=f"{config.id}_right" if config.id else None,
-            joint_num=config.right_joint_num,
             control_mode=config.right_control_mode,
             callback_mode=config.right_callback_mode,
             zmq_address=right_zmq_address,
@@ -73,7 +71,7 @@ class BiRokaeRobot(Robot):
     @property
     def _left_robot_ft(self) -> dict[str, type]:
         return {
-            **{f"left_joint_pos{i}": float for i in range(self.cfg.left_joint_num)},
+            **{f"left_joint_pos{i}": float for i in range(self.left_arm.joint_num)},
             **{f"left_cart_pos{i}": float for i in range(6)},
             "left_psi": float,
             "left_gripper_pos": float
@@ -82,7 +80,7 @@ class BiRokaeRobot(Robot):
     @property
     def _right_robot_ft(self) -> dict[str, type]:
         return {
-            **{f"right_joint_pos{i}": float for i in range(self.cfg.right_joint_num)},
+            **{f"right_joint_pos{i}": float for i in range(self.right_arm.joint_num)},
             **{f"right_cart_pos{i}": float for i in range(6)},
             "right_psi": float,
             "right_gripper_pos": float

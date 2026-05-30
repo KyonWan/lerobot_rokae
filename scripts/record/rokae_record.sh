@@ -17,11 +17,7 @@ DATASET_VCODEC="h264"
 # 相机配置
 # external 设为 640x480 时，rokae_record_plugin 会跳过 Python 裁切+resize（降低 obs_proc；需全幅画面请在相机端或改分辨率）
 # cpu_core 要求录制进程允许的 CPU 集合包含这些核（勿再用 taskset -c 0 单核，否则线程无法绑到 5/6/7）
-CAMERAS_CONFIG="{external: {type: orbbec, serial_number_or_index: 'CP2G85300022', \
-width: 640, height: 480, fps: 60, use_depth: false}, \
-left_wrist: {type: intelrealsense, serial_number_or_name: '260322274865', \
-width: 640, height: 480, fps: 60, use_depth: false}, \
-right_wrist: {type: intelrealsense, serial_number_or_name: '260322272759', \
+CAMERAS_CONFIG="{left_wrist: {type: intelrealsense, serial_number_or_name: '260322271849', \
 width: 640, height: 480, fps: 60, use_depth: false}}"
 
 # CAMERAS_CONFIG="{external: {type: orbbec, serial_number_or_index: 'CP2G85300022', \
@@ -29,18 +25,11 @@ width: 640, height: 480, fps: 60, use_depth: false}}"
 # left_wrist: {type: intelrealsense, serial_number_or_name: '260322274865', \
 # width: 640, height: 480, fps: 60, use_depth: false, cpu_core: 6}}"
 
-echo "[rokae_record] dataset.vcodec=$DATASET_VCODEC"
-# 6 轴时必填（与 rokae server 脚本 ROBOT_IP 一致）；7 轴 Pink 可不填
-ROBOT_IP="192.168.2.180"
-
-
 taskset -c 0 python -m lerobot.scripts.lerobot_record \
     --robot.type=rokae_robot \
     --robot.zmq_port=5555 \
-    --robot.joint_num=7 \
     --robot.control_mode=joint_position \
     --robot.callback_mode=joint_pos \
-    --robot.robot_ip="$ROBOT_IP" \
     --teleop.type=spacemouse \
     --teleop.device_index=0 \
     --dataset.vcodec="$DATASET_VCODEC" \
@@ -51,5 +40,5 @@ taskset -c 0 python -m lerobot.scripts.lerobot_record \
     --dataset.single_task="Grab the cube" \
     --dataset.push_to_hub=False \
     --log_slow_loop_periodically=True \
-    --display_data=False
-    # --robot.cameras="$CAMERAS_CONFIG"
+    --display_data=False \
+    --robot.cameras="$CAMERAS_CONFIG"

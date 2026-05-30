@@ -36,7 +36,6 @@ class RokaeRobot(Robot):
     def __init__(self, config:RokaeRobotConfig):
         super().__init__(config)
         self.cfg = config
-        self.joint_num = config.joint_num
         self.cameras = make_cameras_from_configs(config.cameras)
         self.gripper_pos_cur = None
 
@@ -61,6 +60,7 @@ class RokaeRobot(Robot):
 
         tool_info = self.client.get_tool_info()
         robot_info = self.client.get_robot_info()
+        self.joint_num = int(robot_info["joint_num"])
         self.robot_info = robot_info
         self.robot_type = str(robot_info.get("type"))
         self.tool_info = tool_info

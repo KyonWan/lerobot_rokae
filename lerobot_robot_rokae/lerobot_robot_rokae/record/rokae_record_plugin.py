@@ -41,6 +41,12 @@ def _callback_mode_value(cb) -> Optional[str]:
     return getattr(cb, "value", cb)
 
 
+def _ik_robot_ip(client, joint_num: int) -> str:
+    if joint_num == 6:
+        return client.get_robot_info().get("robot_ip", "")
+    return ""
+
+
 def _warn_if_rokae_vel_limits_exceeded(
     trans_max_vel: float,
     rot_max_vel: float,
@@ -108,8 +114,8 @@ def _make_bimanual_pipelines(
     
     返回 (teleop_action_processor, robot_action_processor, robot_observation_processor)，如果不支持则返回 None。
     """
-    left_joint_num = getattr(cfg.robot, "left_joint_num", 7)
-    right_joint_num = getattr(cfg.robot, "right_joint_num", 7)
+    left_joint_num = robot.left_arm.joint_num
+    right_joint_num = robot.right_arm.joint_num
     left_cb = getattr(cfg.robot, "left_callback_mode", None)
     right_cb = getattr(cfg.robot, "right_callback_mode", None)
     left_mode = _callback_mode_value(left_cb)
@@ -140,8 +146,8 @@ def _make_bimanual_pipelines(
     select_arms = select_action_arms(arm_specs)
     
     # 运动学参数
-    left_robot_ip = getattr(cfg.robot, "left_robot_ip", "")
-    right_robot_ip = getattr(cfg.robot, "right_robot_ip", "")
+    left_robot_ip = _ik_robot_ip(robot.left_arm.client, left_joint_num)
+    right_robot_ip = _ik_robot_ip(robot.right_arm.client, right_joint_num)
 
     if cfg.teleop.type == "bi_spacemouse":
         trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
@@ -269,8 +275,9 @@ def _make_single_arm_pipelines(
     
     返回 (teleop_action_processor, robot_action_processor, robot_observation_processor)，如果不支持则返回 None。
     """
-    joint_num = getattr(cfg.robot, "joint_num")
+    joint_num = robot.joint_num
     cb_mode = _callback_mode_value(getattr(cfg.robot, "callback_mode", None))
+    robot_ip = _ik_robot_ip(robot.client, joint_num)
 
     if cfg.teleop.type == "spacemouse":
         trans_max_vel = getattr(cfg.teleop, "trans_max_vel")
@@ -287,7 +294,7 @@ def _make_single_arm_pipelines(
                     getattr(robot, "base_frame_in_world", None),
                     trans_max_vel,
                     rot_max_vel,
-                    robot_ip=getattr(cfg.robot, "robot_ip", ""),
+                    robot_ip=robot_ip,
                 )
             ],
             control_period=1.0 / cfg.dataset.fps,
@@ -308,7 +315,7 @@ def _make_single_arm_pipelines(
                     getattr(robot, "base_frame_in_world", None),
                     trans_max_vel,
                     rot_max_vel,
-                    robot_ip=getattr(cfg.robot, "robot_ip", ""),
+                    robot_ip=robot_ip,
                 )
             ],
             control_period=1.0 / cfg.dataset.fps,

@@ -21,9 +21,6 @@ class CallbackMode(str, Enum):
 @RobotConfig.register_subclass("rokae_robot")
 @dataclass
 class RokaeRobotConfig(RobotConfig):
-    # basic params
-    joint_num: int = 6
-    # control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
     control_mode: ControlMode = ControlMode.JOINT_POSITION
     callback_mode: CallbackMode = CallbackMode.JOINT_POS
 
@@ -43,6 +40,3 @@ class RokaeRobotConfig(RobotConfig):
 
     # cameras
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
-
-    # 6 轴 xCore model 逆解（ArmPipeline）：与 ZMQ 控制独立，仅用于初始化 model
-    robot_ip: str = ""

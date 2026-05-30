@@ -24,10 +24,6 @@ class BiRokaeRobotConfig(RobotConfig):
     left_zmq_port: int = 5555
     right_zmq_port: int = 5556
 
-    # Basic params
-    left_joint_num: int = 7
-    right_joint_num: int = 7
-
     # 控制循环频率（Hz）。在录制脚本中会由 dataset.fps 自动覆盖，并传播到左右单臂的 RokaeRobotConfig。
     control_loop_fps: int | None = None
 
@@ -36,10 +32,6 @@ class BiRokaeRobotConfig(RobotConfig):
     left_callback_mode: CallbackMode = CallbackMode.JOINT_POS
     right_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
     right_callback_mode: CallbackMode = CallbackMode.JOINT_POS
-
-    # 6 轴 xCore model 逆解（每臂 robot_ip，与 ZMQ 控制独立）
-    left_robot_ip: str = ""
-    right_robot_ip: str = ""
 
     # Cameras (shared between both arms)
     cameras: dict[str, CameraConfig] = field(default_factory=dict)

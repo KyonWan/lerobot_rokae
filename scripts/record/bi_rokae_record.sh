@@ -23,15 +23,12 @@ width: 640, height: 480, fps: 60, use_depth: false}, \
 right_wrist: {type: intelrealsense, serial_number_or_name: '352122272829', \
 width: 640, height: 480, fps: 60, use_depth: false}}"
 
-# 6 轴双臂时填写（与 start_rokae_*_server.sh 中 ROBOT_IP 一致；7 轴 Pink 可不填）
-LEFT_ROBOT_IP="192.168.2.180"
-RIGHT_ROBOT_IP="192.168.71.160"
-
 # --- Teleop / IK（6 轴 xCore model；7 轴 Pink 自动解析 URDF）---
 # rokae_record_plugin 在创建 pipeline 时对各臂调用 get_robot_info().type，
 # 在 rokae_python_wrapper/rokae_kinematics/rokae_urdf/ 下查找 {type}.urdf，
 # 并从 URDF 解析末端 link（优先 *_tcp，其次 *_flan_link）。找不到机型 URDF 会报错。
 # 请保证 ZMQ server 已连接且 robotInfo.type 与 rokae_urdf 内文件名一致（如 AR5-5_07L-W4C4A2）。
+# joint_num / robot_ip 由 ZMQ server 提供，无需在此脚本重复配置。
 # ------------------------------------------------------------------------------------
 
 taskset -c 9 python -m lerobot.scripts.lerobot_record \
@@ -39,14 +36,10 @@ taskset -c 9 python -m lerobot.scripts.lerobot_record \
     --robot.type=bi_rokae_robot \
     --robot.left_zmq_port=5555 \
     --robot.right_zmq_port=5556 \
-    --robot.left_joint_num=7 \
-    --robot.right_joint_num=7 \
     --robot.left_control_mode=joint_position \
     --robot.left_callback_mode=joint_pos \
     --robot.right_control_mode=joint_position \
     --robot.right_callback_mode=joint_pos \
-    --robot.left_robot_ip="$LEFT_ROBOT_IP" \
-    --robot.right_robot_ip="$RIGHT_ROBOT_IP" \
     --teleop.type=bi_spacemouse \
     --teleop.left_device_index=0 \
     --teleop.right_device_index=1 \
