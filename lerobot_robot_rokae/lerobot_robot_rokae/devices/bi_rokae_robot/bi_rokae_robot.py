@@ -9,7 +9,7 @@ from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.utils.errors import DeviceNotConnectedError
 from .config_bi_rokae_robot import BiRokaeRobotConfig
 from ..rokae_robot.rokae_robot import RokaeRobot
-from ..rokae_robot.config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode
+from ..rokae_robot.config_rokae_robot import RokaeRobotConfig
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,6 @@ class BiRokaeRobot(Robot):
         left_arm_config = RokaeRobotConfig(
             id=f"{config.id}_left" if config.id else None,
             control_mode=config.left_control_mode,
-            callback_mode=config.left_callback_mode,
             zmq_address=left_zmq_address,
             control_loop_fps=getattr(config, "control_loop_fps", None),
             cameras={},  # Cameras are shared at the bimanual level
@@ -58,7 +57,6 @@ class BiRokaeRobot(Robot):
         right_arm_config = RokaeRobotConfig(
             id=f"{config.id}_right" if config.id else None,
             control_mode=config.right_control_mode,
-            callback_mode=config.right_callback_mode,
             zmq_address=right_zmq_address,
             control_loop_fps=getattr(config, "control_loop_fps", None),
             cameras={},  # Cameras are shared at the bimanual level

@@ -7,7 +7,7 @@ from typing import Any
 from lerobot.robots.robot import Robot
 from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
-from .config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode
+from .config_rokae_robot import RokaeRobotConfig, ControlMode, CallbackMode, infer_callback_mode
 from rokae_python_wrapper.rokae_zmq_client import RokaeZmqClient, RokaeZmqClientError
 import numpy as np
 
@@ -38,6 +38,7 @@ class RokaeRobot(Robot):
         self.cfg = config
         self.cameras = make_cameras_from_configs(config.cameras)
         self.gripper_pos_cur = None
+        self.callback_mode = infer_callback_mode(config.control_mode)
 
         # 由录制脚本通过 config.control_loop_fps 传入控制频率，用于统一设置插值时间 interpolate_time = 1.0 / fps
         self.interpolate_time: float | None = None
@@ -104,7 +105,7 @@ class RokaeRobot(Robot):
             return
 
         if not self.client.is_in_realtime_loop():
-            self.client.start_realtime_loop(self.cfg.control_mode.value, self.cfg.callback_mode.value)
+            self.client.start_realtime_loop(self.cfg.control_mode.value, self.callback_mode.value)
 
         for cam in self.cameras.values():
             cam.connect()
@@ -147,15 +148,15 @@ class RokaeRobot(Robot):
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
         # ZMQ 客户端使用一次 RPC 完成 set_target + gripper + get_state，减少往返延迟
         if hasattr(self.client, "send_action_and_get_state"):
-            if self.cfg.callback_mode == CallbackMode.JOINT_POS:
+            if self.callback_mode == CallbackMode.JOINT_POS:
                 robot_action = np.array([action[f"joint_pos{i}"] for i in range(self.joint_num)])
                 action_type = "joint_pos"
-            elif self.cfg.callback_mode == CallbackMode.CART_POS:
+            elif self.callback_mode == CallbackMode.CART_POS:
                 robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)])
                 action_type = "cart_pos"
             else:
                 raise ValueError(
-                    f"Unsupported callback_mode {self.cfg.callback_mode!r}; "
+                    f"Unsupported callback_mode {self.callback_mode!r}; "
                     "use joint_pos or cart_pos."
                 )
             gripper_pos = float(action["gripper_pos"])
@@ -176,15 +177,15 @@ class RokaeRobot(Robot):
         # ZMQ 客户端回退逻辑（如果 send_action_and_get_state 不可用）
         # 这种情况不应该发生，因为 ZMQ 客户端总是支持 send_action_and_get_state
         # 但保留此逻辑作为安全回退
-        if self.cfg.callback_mode == CallbackMode.JOINT_POS:
+        if self.callback_mode == CallbackMode.JOINT_POS:
             robot_action = np.array([action[f"joint_pos{i}"] for i in range(self.joint_num)])
             self.client.set_target_joint_pos(robot_action, interpolate_time=self.interpolate_time)
-        elif self.cfg.callback_mode == CallbackMode.CART_POS:
+        elif self.callback_mode == CallbackMode.CART_POS:
             robot_action = np.array([action[f"cart_pos{i}"] for i in range(6)])
             self.client.set_target_cart_pos(robot_action, interpolate_time=self.interpolate_time)
         else:
             raise ValueError(
-                f"Unsupported callback_mode {self.cfg.callback_mode!r}; "
+                f"Unsupported callback_mode {self.callback_mode!r}; "
                 "use joint_pos or cart_pos."
             )
 

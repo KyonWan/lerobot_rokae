@@ -18,11 +18,17 @@ class CallbackMode(str, Enum):
     CART_POS = "cart_pos"
 
 
+def infer_callback_mode(control_mode: ControlMode | str) -> CallbackMode:
+    if not isinstance(control_mode, ControlMode):
+        control_mode = ControlMode(control_mode)
+    joint_modes = {ControlMode.JOINT_POSITION, ControlMode.JOINT_IMPEDNACE}
+    return CallbackMode.JOINT_POS if control_mode in joint_modes else CallbackMode.CART_POS
+
+
 @RobotConfig.register_subclass("rokae_robot")
 @dataclass
 class RokaeRobotConfig(RobotConfig):
     control_mode: ControlMode = ControlMode.JOINT_POSITION
-    callback_mode: CallbackMode = CallbackMode.JOINT_POS
 
     # 控制循环频率（Hz）。在录制脚本中会由 dataset.fps 自动覆盖，用于计算 interpolate_time = 1.0 / fps。
     control_loop_fps: int | None = None

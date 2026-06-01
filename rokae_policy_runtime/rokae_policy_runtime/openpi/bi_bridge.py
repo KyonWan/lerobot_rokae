@@ -31,7 +31,6 @@ from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.config_bi_ro
 )
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.bi_rokae_robot import BiRokaeRobot
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.config_rokae_robot import (
-    CallbackMode,
     ControlMode,
 )
 from openpi_client import websocket_client_policy
@@ -69,9 +68,7 @@ class BiOpenPIPolicyBridge:
         left_zmq_address: str | None = None,
         right_zmq_address: str | None = None,
         left_control_mode: ControlMode = ControlMode.JOINT_IMPEDNACE,
-        left_callback_mode: CallbackMode = CallbackMode.JOINT_POS,
         right_control_mode: ControlMode = ControlMode.JOINT_IMPEDNACE,
-        right_callback_mode: CallbackMode = CallbackMode.JOINT_POS,
         cam_high_serial: str | None = None,
         cam_left_wrist_serial: str | None = None,
         cam_right_wrist_serial: str | None = None,
@@ -142,9 +139,7 @@ class BiOpenPIPolicyBridge:
             left_zmq_port=left_zmq_port,
             right_zmq_port=right_zmq_port,
             left_control_mode=left_control_mode,
-            left_callback_mode=left_callback_mode,
             right_control_mode=right_control_mode,
-            right_callback_mode=right_callback_mode,
             control_loop_fps=control_frequency,
             cameras=cameras,
         )

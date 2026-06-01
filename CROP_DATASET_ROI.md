@@ -151,7 +151,7 @@ python /home/rokae/Projects/lerobot_rokae/lerobot/src/lerobot/rl/crop_dataset_ro
   --new-repo-id gripper_parts_single_pi0
 ```
 
-### 本仓库 `bi_rokae_record.sh` 录制数据（`--dataset.root` 为数据集根目录）
+### 本仓库双臂录制数据（`scripts/record/rokae_record.sh --config_path=config/record/bi_rokae_spacemouse_example.yaml`，`--dataset.root` 为数据集根目录）
 
 `--root` 必须与录制时 **`--dataset.root` 指向的目录**（内含 `meta/`）一致；`--repo-id` 与 **`--dataset.repo_id`** 一致。
 

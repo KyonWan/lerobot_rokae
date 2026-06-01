@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from lerobot.cameras import CameraConfig
 from lerobot.robots.config import RobotConfig
-from ..rokae_robot.config_rokae_robot import ControlMode, CallbackMode
+from ..rokae_robot.config_rokae_robot import ControlMode
 
 
 @RobotConfig.register_subclass("bi_rokae_robot")
@@ -29,9 +29,7 @@ class BiRokaeRobotConfig(RobotConfig):
 
     # Control modes
     left_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    left_callback_mode: CallbackMode = CallbackMode.JOINT_POS
     right_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    right_callback_mode: CallbackMode = CallbackMode.JOINT_POS
 
     # Cameras (shared between both arms)
     cameras: dict[str, CameraConfig] = field(default_factory=dict)

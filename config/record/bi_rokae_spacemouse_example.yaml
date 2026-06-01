@@ -1,0 +1,56 @@
+# 双臂 Rokae + 双 SpaceMouse 录制示例（draccus / --config_path）
+# 用法（在仓库根目录）:
+#   ./scripts/record/rokae_record.sh --config_path=config/record/bi_rokae_spacemouse_example.yaml
+# 动态 dataset.root 示例:
+#   ... --dataset.root="./dataset/bi_run_$(date +%Y%m%d_%H%M%S)"
+#
+# joint_num / robot_ip 由 ZMQ server 提供。需要相机时在 robot.cameras 中配置。
+
+resume: false
+display_data: false
+log_slow_loop_periodically: false
+
+robot:
+  type: bi_rokae_robot
+  left_zmq_port: 5555
+  right_zmq_port: 5556
+  left_control_mode: joint_position
+  right_control_mode: joint_position
+  # cameras:
+  #   external:
+  #     type: orbbec
+  #     serial_number_or_index: "CP2G8530004K"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+  #   left_wrist:
+  #     type: intelrealsense
+  #     serial_number_or_name: "260322271562"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+  #   right_wrist:
+  #     type: intelrealsense
+  #     serial_number_or_name: "352122272829"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+
+teleop:
+  type: bi_spacemouse
+  left_device_index: 0
+  right_device_index: 1
+
+dataset:
+  repo_id: test_2025/bi_rokae_record
+  single_task: "Put the two white parts into the gray box."
+  root: ./dataset/bi_rokae_example
+  fps: 30
+  num_episodes: 100
+  episode_time_s: 300
+  push_to_hub: false
+  video: true
+  vcodec: h264

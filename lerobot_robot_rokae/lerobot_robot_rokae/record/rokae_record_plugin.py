@@ -22,6 +22,9 @@ from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.rokae_processor
     select_action_arms,
     single_arm_spec,
 )
+from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.config_rokae_robot import (
+    infer_callback_mode,
+)
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.teleop_common.config import (
     arm_config,
 )
@@ -34,11 +37,10 @@ from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico.pipeline
 )
 
 
-def _callback_mode_value(cb) -> Optional[str]:
-    """Helper to normalize enum / string callback_mode."""
-    if cb is None:
-        return None
-    return getattr(cb, "value", cb)
+def _callback_mode_from_control_mode(control_mode) -> str:
+    """Derive callback_mode from control_mode enum/string."""
+    cm = getattr(control_mode, "value", control_mode)
+    return infer_callback_mode(cm).value
 
 
 def _ik_robot_ip(client, joint_num: int) -> str:
@@ -116,10 +118,10 @@ def _make_bimanual_pipelines(
     """
     left_joint_num = robot.left_arm.joint_num
     right_joint_num = robot.right_arm.joint_num
-    left_cb = getattr(cfg.robot, "left_callback_mode", None)
-    right_cb = getattr(cfg.robot, "right_callback_mode", None)
-    left_mode = _callback_mode_value(left_cb)
-    right_mode = _callback_mode_value(right_cb)
+    left_cm = cfg.robot.left_control_mode
+    right_cm = cfg.robot.right_control_mode
+    left_mode = _callback_mode_from_control_mode(left_cm)
+    right_mode = _callback_mode_from_control_mode(right_cm)
     
     # 检查左右臂的 callback_mode 是否相同（通常应该相同）
     if left_mode != right_mode:
@@ -130,15 +132,14 @@ def _make_bimanual_pipelines(
     
     cb_mode = left_mode  # 使用相同的 mode
     
-    # 几何参数来自 BiRokaeRobot 内部的左右 RokaeRobot（它们在构造时已通过 ZMQ 读取）
-    left_arm = getattr(robot, "left_arm", None)
-    right_arm = getattr(robot, "right_arm", None)
-    left_tool_end_pos = getattr(left_arm, "tool_end_pos", None)
-    left_tool_ref_pos = getattr(left_arm, "tool_ref_pos", None)
-    left_base_frame_in_world = getattr(left_arm, "base_frame_in_world", None)
-    right_tool_end_pos = getattr(right_arm, "tool_end_pos", None)
-    right_tool_ref_pos = getattr(right_arm, "tool_ref_pos", None)
-    right_base_frame_in_world = getattr(right_arm, "base_frame_in_world", None)
+    left_arm = robot.left_arm
+    right_arm = robot.right_arm
+    left_tool_end_pos = left_arm.tool_end_pos
+    left_tool_ref_pos = left_arm.tool_ref_pos
+    left_base_frame_in_world = left_arm.base_frame_in_world
+    right_tool_end_pos = right_arm.tool_end_pos
+    right_tool_ref_pos = right_arm.tool_ref_pos
+    right_base_frame_in_world = right_arm.base_frame_in_world
     arm_specs = bimanual_arm_specs(
         left_arm, right_arm, left_joint_num, right_joint_num
     )
@@ -276,7 +277,7 @@ def _make_single_arm_pipelines(
     返回 (teleop_action_processor, robot_action_processor, robot_observation_processor)，如果不支持则返回 None。
     """
     joint_num = robot.joint_num
-    cb_mode = _callback_mode_value(getattr(cfg.robot, "callback_mode", None))
+    cb_mode = _callback_mode_from_control_mode(cfg.robot.control_mode)
     robot_ip = _ik_robot_ip(robot.client, joint_num)
 
     if cfg.teleop.type == "spacemouse":
@@ -289,9 +290,9 @@ def _make_single_arm_pipelines(
                     "",
                     joint_num,
                     _robot_type,
-                    getattr(robot, "tool_end_pos", None),
-                    getattr(robot, "tool_ref_pos", None),
-                    getattr(robot, "base_frame_in_world", None),
+                    robot.tool_end_pos,
+                    robot.tool_ref_pos,
+                    robot.base_frame_in_world,
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=robot_ip,
@@ -310,9 +311,9 @@ def _make_single_arm_pipelines(
                     "",
                     joint_num,
                     _robot_type,
-                    getattr(robot, "tool_end_pos", None),
-                    getattr(robot, "tool_ref_pos", None),
-                    getattr(robot, "base_frame_in_world", None),
+                    robot.tool_end_pos,
+                    robot.tool_ref_pos,
+                    robot.base_frame_in_world,
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=robot_ip,
