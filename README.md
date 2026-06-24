@@ -27,6 +27,23 @@ git submodule init
 git submodule update
 ```
 
+### 0.1 Git LFS（`rokae_python_wrapper` 子模块必需）
+
+子模块 `rokae_python_wrapper` 中的 Rokae SDK 二进制（`*.so`）由 **Git LFS** 管理。未安装 LFS 或未拉取对象时，工作区里可能只有几行指针文本，运行会失败。
+
+```bash
+# 一次性（每台机器）
+sudo apt-get install -y git-lfs    # 若系统尚未安装
+git lfs install
+
+# 克隆 / submodule update 之后，在子模块目录拉取大文件
+cd rokae_python_wrapper
+git lfs pull
+cd ..
+```
+
+日常在子模块里 `git pull` 更新代码后，若 SDK `.so` 异常，同样在 `rokae_python_wrapper/` 下执行 `git lfs pull`。更多说明见 [rokae_python_wrapper/README.md](rokae_python_wrapper/README.md)。
+
 ### 1. 创建 Conda 环境
 
 ```bash
@@ -40,17 +57,34 @@ conda activate lerobot
 conda install ffmpeg -c conda-forge
 ```
 
-### 3. 安装 LeRobot
+### 3. 一键安装（推荐）
+
+在仓库根目录 `lerobot_rokae/` 执行（需 pip >= 21.2，建议先 `pip install -U pip`）：
 
 ```bash
-cd lerobot
-pip install -e . \
+pip install --no-build-isolation -e . \
   -i https://pypi.tuna.tsinghua.edu.cn/simple \
   --trusted-host pypi.tuna.tsinghua.edu.cn
-cd ..
 ```
 
-### 4. 安装 Rokae 机器人集成
+> `--no-build-isolation` 用于让根目录 meta 包在安装时以 **editable** 方式拉齐本地子包（见根 [`setup.py`](setup.py)）。若省略该 flag，构建隔离环境内无法完成子包 editable 安装。
+
+上述命令会通过根目录 [`pyproject.toml`](pyproject.toml) + [`setup.py`](setup.py) 一次性 editable 安装：
+
+- `lerobot[intelrealsense]`（含 RealSense 相机依赖）
+- `rokae_python_wrapper`
+- `lerobot_robot_rokae`
+- `lerobot_teleoperator_rokae`
+
+若还需 policy 推理栈，可安装 optional extra：
+
+```bash
+pip install --no-build-isolation -e ".[policy]" \
+  -i https://pypi.tuna.tsinghua.edu.cn/simple \
+  --trusted-host pypi.tuna.tsinghua.edu.cn
+```
+
+### 4. 系统依赖（SpaceMouse / 视频）
 
 使用 SpaceMouse（`pyspacemouse`）时，Linux 上需要系统级 **HIDAPI**（pip 无法提供），请先安装：
 
@@ -59,29 +93,24 @@ sudo apt-get update
 sudo apt-get install -y libhidapi-dev libhidapi-hidraw0
 ```
 
-7 轴笛卡尔逆解依赖 **Pink**（PyPI 包名 **`pin-pink`**，勿装错成同名 `pink`）、**Pinocchio**（经 `pin-pink` 依赖的 `pin`）与 **qpsolvers[open_source_solvers]**；这些已写在 `rokae_python_wrapper` 与 `lerobot_teleoperator_rokae` 的 `pyproject.toml` 中，随下面 `pip install -e` 一并安装。
-
-建议先安装 `rokae_python_wrapper`（提供运动学与 IK），再安装遥操作包：
-
-```bash
-pip install -e lerobot_robot_rokae
-cd rokae_python_wrapper
-pip install -e .
-cd ..
-pip install -e lerobot_teleoperator_rokae
-```
-
 更多说明见 [lerobot_teleoperator_rokae/README.md](lerobot_teleoperator_rokae/README.md)。
 
-### 5. 安装 Rokae Python Wrapper
+### 5. 分步安装 / 仅 wrapper（高级，可跳过）
 
-若你已在上一节执行过 `pip install -e rokae_python_wrapper`，可跳过本节；否则：
+> 仅在**不使用第 3 步一键安装**时执行本节。  
+> 如果你已经执行了第 3 步，请直接跳过，避免重复安装。
+
+若不用根目录 meta 包，或只需单独开发某一子包，可分别 editable 安装：
 
 ```bash
-cd rokae_python_wrapper
-pip install -e .
-cd ..
+pip install -e "./lerobot[intelrealsense]"
+pip install -e ./rokae_python_wrapper
+pip install -e ./lerobot_robot_rokae
+pip install -e ./lerobot_teleoperator_rokae
 ```
+
+`rokae_python_wrapper` 亦可单独 clone 后在项目根 `pip install -e .`（见 [rokae_python_wrapper/README.md](rokae_python_wrapper/README.md)）。
+
 ### 6. 安装 [XRoboToolkit](https://github.com/XR-Robotics) （仅当使用 Pico 遥操作时需要）
 
 
@@ -122,147 +151,24 @@ cd ..
 
 ## 数据采集
 
-### 前置准备
+录制相关说明已独立到 [`RECORDING.md`](RECORDING.md)，包含：
 
-1. **配置机器人参数**：编辑 `rokae_python_wrapper/scripts/start_rokae_left_server.sh`，设置正确的 `--robot_ip`、`--host_ip`、`--q_drag` 等参数。
+- 单臂 / 双臂启动与录制
+- SpaceMouse / Pico 录制示例
+- `config/record/*.yaml` 用法
+- 常见问题与排错
 
-2. **设置工具信息**：如果使用自定义工具（如夹爪），需要在 `rokae_python_wrapper/rokae_server.py` 中修改 `RokaeServer` 类的工具信息常量。详见 `rokae_python_wrapper/README.md`。
-
-### 采集步骤
-
-#### 1. 激活环境
-
-```bash
-conda activate lerobot
-```
-
-#### 2. 启动 Rokae 服务器
+快速开始（单臂 SpaceMouse）：
 
 ```bash
-# 使用启动脚本（推荐）
 cd rokae_python_wrapper
-./scripts/start_rokae_left_server.sh
-
-# 或直接使用命令行（无夹爪时省略 --gripper_address；有夹爪时需先启动 rokae_gripper_server）
-python -m rokae_python_wrapper.rokae_zmq_server \
-  --robot_ip=<你的机器人IP> \
-  --host_ip=<你的主机IP> \
-  --zmq_port=5555 \
-  --zmq_transport=ipc \
-  --joint_num=7 \
-  --q_drag="-70,34,-64,105,50,0,-10" \
-  --gripper_address=ipc:///tmp/rokae_gripper_5557
+./scripts/rokae_run.sh --config config/server/single.example.yaml
+cd ..
+./scripts/record/rokae_record.sh --config_path=config/record/single_rokae_spacemouse_example.yaml
 ```
-
-#### 3. 启动数据采集
-
-**使用 SpaceMouse 进行单臂数据采集：**
-
-使用 `scripts/rokae_record.sh` 脚本进行数据采集：
-
-```bash
-chmod +x scripts/rokae_record.sh
-./scripts/rokae_record.sh
-```
-
-或者直接使用命令行：
-
-```bash
-python -m lerobot.scripts.lerobot_record \
-  --robot.type=rokae_robot \
-  --teleop.type=spacemouse \
-  --dataset.repo_id=Rokae/lerobot_test_1 \
-  --dataset.root="./datasets" \
-  --dataset.num_episodes=2 \
-  --dataset.single_task="Grab the cube" \
-  --dataset.push_to_hub=False \
-  --display_data=true
-```
-
-**常用可选参数**：
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--display_data` | 是否在 Rerun 中显示采集数据 | `false` |
-| `--log_slow_loop_periodically` | 是否每秒打印一次控制循环耗时（用于监控帧率稳定性） | `false` |
-**使用 Pico 进行单臂数据采集：**
-
-使用 `scripts/pico_single_rokae_record.sh` 脚本进行数据采集：
-
-```bash
-chmod +x scripts/pico_single_rokae_record.sh
-./scripts/pico_single_rokae_record.sh
-```
-
-或者直接使用命令行：
-
-```bash
-python -m lerobot.scripts.lerobot_record \
-    --robot.type=rokae_robot \
-    --robot.zmq_port=5555 \
-    --robot.joint_num=7 \
-    --robot.control_mode=joint_impedance \
-    --robot.callback_mode=joint_pos \
-    --robot.rbv="$RBV_M" \
-    --robot.min_joint="$MIN_JOINT_RAD" \
-    --robot.max_joint="$MAX_JOINT_RAD" \
-    --teleop.type=pico_single \
-    --teleop.side='right' \
-    --teleop.R_headset_world='[90.0, 0.0, 180.0]' \
-    --dataset.repo_id=test_2025/rokae_record \
-    --dataset.root="/home/rx78/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
-    --dataset.num_episodes=10 \
-    --dataset.episode_time_s=100 \
-    --dataset.single_task="Grab the cube" \
-    --dataset.push_to_hub=False \
-    --display_data=False
-```
-
-**常用可选参数**：
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--teleop.side` | 使用哪个手柄控制单个机械臂 | `right` |
-| `--teleop.R_headset_world` | 头显设备到世界坐标系的旋转矩阵（xyz内旋欧拉角表示），根据佩戴头显设备的操作者的站位和世界坐标系的设定自行修改配置 | `[90.0, 0.0, 180.0]` |
-
-**添加相机支持**（可选）：
-
-```bash
-python -m lerobot.scripts.lerobot_record \
-  --robot.type=rokae_robot \
-  --teleop.type=spacemouse \
-  --robot.cameras="{laptop: {type: intelrealsense, serial_number_or_name: 838212074037, width: 640, height: 480, fps: 60}}" \
-  --dataset.repo_id=Rokae/lerobot_test_1 \
-  --dataset.root="./datasets" \
-  --dataset.num_episodes=2 \
-  --dataset.single_task="Grab the cube" \
-  --dataset.push_to_hub=False \
-  --display_data=true
-```
-
-#### 4. 数据回放
-
-```bash
-lerobot-dataset-viz \
-  --repo-id Rokae/lerobot_test_1 \
-  --root "./datasets" \
-  --episode-index 0
-```
-
-## 注意事项
-
-- ⚠️ 服务器启动后会自动运动到 `--q_drag` 指定的关节角度，务必确保设置正确，无碰撞风险。
-- ⚠️ 所有参数（`--robot_ip`、`--host_ip`、`--q_drag`、`--gripper_address` 等）都需要与你的硬件实际配置匹配。
-- ⚠️ 使用自定义工具时，必须在代码中设置正确的工具信息（质量、质心、惯性张量等），否则可能导致位置控制偏差。
-
-## 双臂机器人支持
-
-本项目支持使用两个 SpaceMouse 和 Pico 同时控制两个 Rokae 单臂机器人，实现双臂遥操作数据采集。
-
-详见：[双臂机器人使用说明](BI_ROKAE_README.md)
 
 ## 相关文档
 
-- [双臂机器人使用说明](BI_ROKAE_README.md) - 双 SpaceMouse + 双 Rokae 配置
+- [录制说明](RECORDING.md) - 单臂/双臂、SpaceMouse/Pico 录制流程
 - [Rokae Python Wrapper 文档](rokae_python_wrapper/README.md)
 - [LeRobot 官方文档](https://github.com/huggingface/lerobot)

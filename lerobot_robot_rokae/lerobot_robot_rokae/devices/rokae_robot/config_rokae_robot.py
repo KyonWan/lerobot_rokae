@@ -16,19 +16,19 @@ class ControlMode(str, Enum):
 class CallbackMode(str, Enum):
     JOINT_POS = "joint_pos"
     CART_POS = "cart_pos"
-    CART_VEL = "cart_vel"
+
+
+def infer_callback_mode(control_mode: ControlMode | str) -> CallbackMode:
+    if not isinstance(control_mode, ControlMode):
+        control_mode = ControlMode(control_mode)
+    joint_modes = {ControlMode.JOINT_POSITION, ControlMode.JOINT_IMPEDNACE}
+    return CallbackMode.JOINT_POS if control_mode in joint_modes else CallbackMode.CART_POS
 
 
 @RobotConfig.register_subclass("rokae_robot")
 @dataclass
 class RokaeRobotConfig(RobotConfig):
-    # basic params
-    joint_num: int = 6
-    # control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    # callback_mode: CallbackMode = CallbackMode.CART_VEL
-
     control_mode: ControlMode = ControlMode.JOINT_POSITION
-    callback_mode: CallbackMode = CallbackMode.JOINT_POS
 
     # 控制循环频率（Hz）。在录制脚本中会由 dataset.fps 自动覆盖，用于计算 interpolate_time = 1.0 / fps。
     control_loop_fps: int | None = None
@@ -46,9 +46,3 @@ class RokaeRobotConfig(RobotConfig):
 
     # cameras
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
-
-    # rokae_algo 运动学初始化参数（joint_pos 模式下 InverseKinematicsProcessor 使用）
-    # 6 轴使用 cr_init(rbv, min_joint, max_joint)，7 轴使用 cross_wrist7_init(rbv, min_joint, max_joint)
-    rbv: list[float] = field(default_factory=list)           # 机器人描述参数（RD 参数）
-    min_joint: list[float] = field(default_factory=list)     # 关节下限（弧度）
-    max_joint: list[float] = field(default_factory=list)     # 关节上限（弧度）

@@ -11,11 +11,7 @@ from xrobotoolkit_teleop.hardware.interface.universal_robots import CONTROLLER_D
 from xrobotoolkit_teleop.utils.geometry import quat_diff_as_angle_axis
 
 from lerobot.teleoperators.teleoperator import Teleoperator
-
-try:
-    from .config_pico_single import PicoSingleConfig
-except ImportError:
-    from config_pico_single import PicoSingleConfig
+from .config_pico_single import PicoSingleConfig
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)

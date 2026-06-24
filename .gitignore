@@ -180,3 +180,7 @@ outputs/
 *.xml
 *.part
 outputimage
+
+# 本机专用录制 YAML
+config/record/*.yaml
+rokae_python_wrapper/config/server/*.yaml

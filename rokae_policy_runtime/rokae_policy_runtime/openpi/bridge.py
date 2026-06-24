@@ -20,7 +20,6 @@ from scipy.interpolate import PchipInterpolator
 from lerobot.cameras.realsense.configuration_realsense import RealSenseCameraConfig
 from lerobot.robots import make_robot_from_config
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.config_rokae_robot import (
-    CallbackMode,
     ControlMode,
     RokaeRobotConfig,
 )
@@ -44,7 +43,6 @@ class OpenPIPolicyBridge:
         zmq_port: int = 5555,
         zmq_address: str | None = None,
         control_mode: ControlMode = ControlMode.JOINT_IMPEDNACE,
-        callback_mode: CallbackMode = CallbackMode.JOINT_POS,
         cam_high_serial: str | None = None,
         cam_wrist_serial: str | None = None,
     ):
@@ -86,7 +84,6 @@ class OpenPIPolicyBridge:
             zmq_address=zmq_address,
             zmq_port=zmq_port,
             control_mode=control_mode,
-            callback_mode=callback_mode,
             control_loop_fps=control_frequency,
             cameras=cameras,
         )

@@ -31,7 +31,6 @@ from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.config_bi_ro
 )
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.bi_rokae_robot.bi_rokae_robot import BiRokaeRobot
 from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.config_rokae_robot import (
-    CallbackMode,
     ControlMode,
 )
 from openpi_client import websocket_client_policy
@@ -57,9 +56,6 @@ class BiOpenPIPolicyBridge:
       [left_joint_pos0..6, left_gripper_pos, right_joint_pos0..6, right_gripper_pos]
     """
 
-    LEFT_JOINT_NUM: int = 7
-    RIGHT_JOINT_NUM: int = 7
-
     def __init__(
         self,
         policy_server_host: str = "localhost",
@@ -72,9 +68,7 @@ class BiOpenPIPolicyBridge:
         left_zmq_address: str | None = None,
         right_zmq_address: str | None = None,
         left_control_mode: ControlMode = ControlMode.JOINT_IMPEDNACE,
-        left_callback_mode: CallbackMode = CallbackMode.JOINT_POS,
         right_control_mode: ControlMode = ControlMode.JOINT_IMPEDNACE,
-        right_callback_mode: CallbackMode = CallbackMode.JOINT_POS,
         cam_high_serial: str | None = None,
         cam_left_wrist_serial: str | None = None,
         cam_right_wrist_serial: str | None = None,
@@ -144,12 +138,8 @@ class BiOpenPIPolicyBridge:
             right_zmq_address=right_zmq_address,
             left_zmq_port=left_zmq_port,
             right_zmq_port=right_zmq_port,
-            left_joint_num=self.LEFT_JOINT_NUM,
-            right_joint_num=self.RIGHT_JOINT_NUM,
             left_control_mode=left_control_mode,
-            left_callback_mode=left_callback_mode,
             right_control_mode=right_control_mode,
-            right_callback_mode=right_callback_mode,
             control_loop_fps=control_frequency,
             cameras=cameras,
         )
@@ -157,9 +147,11 @@ class BiOpenPIPolicyBridge:
         self.robot.connect()
         self.robot.reset_position()
 
+        self.left_joint_num: int = self.robot.left_arm.joint_num
+        self.right_joint_num: int = self.robot.right_arm.joint_num
         # 动作维度：左臂 (joint_num + gripper) + 右臂 (joint_num + gripper)
-        self.left_action_dim: int = self.LEFT_JOINT_NUM + 1
-        self.right_action_dim: int = self.RIGHT_JOINT_NUM + 1
+        self.left_action_dim: int = self.left_joint_num + 1
+        self.right_action_dim: int = self.right_joint_num + 1
         self.action_dim: int = self.left_action_dim + self.right_action_dim  # 16
 
         self.action_chunk_size: int = action_chunk_size
@@ -195,11 +187,11 @@ class BiOpenPIPolicyBridge:
     def _obs_to_state(self, obs: dict) -> np.ndarray:
         """将观测字典转为策略状态向量（16 维）。"""
         left_joints = np.array(
-            [obs[f"left_joint_pos{i}"] for i in range(self.LEFT_JOINT_NUM)], dtype=np.float32
+            [obs[f"left_joint_pos{i}"] for i in range(self.left_joint_num)], dtype=np.float32
         )
         left_gripper = np.array([obs["left_gripper_pos"]], dtype=np.float32)
         right_joints = np.array(
-            [obs[f"right_joint_pos{i}"] for i in range(self.RIGHT_JOINT_NUM)], dtype=np.float32
+            [obs[f"right_joint_pos{i}"] for i in range(self.right_joint_num)], dtype=np.float32
         )
         right_gripper = np.array([obs["right_gripper_pos"]], dtype=np.float32)
         return np.concatenate([left_joints, left_gripper, right_joints, right_gripper])
@@ -347,7 +339,7 @@ class BiOpenPIPolicyBridge:
         right_action = action[self.left_action_dim :]  # 后 8 维
 
         # ---- 左夹爪 ----
-        raw_left_gripper = float(left_action[self.LEFT_JOINT_NUM])
+        raw_left_gripper = float(left_action[self.left_joint_num])
         left_gripper_cmd: int | None = 1 if raw_left_gripper >= 0.7 else 0
         if left_gripper_cmd == self._left_gripper_cmd:
             left_gripper_cmd = None
@@ -356,7 +348,7 @@ class BiOpenPIPolicyBridge:
             logger.info("左夹爪状态切换: %s", "闭合(0)" if left_gripper_cmd == 0 else "张开(1)")
 
         # ---- 右夹爪 ----
-        raw_right_gripper = float(right_action[self.RIGHT_JOINT_NUM])
+        raw_right_gripper = float(right_action[self.right_joint_num])
         right_gripper_cmd: int | None = 1 if raw_right_gripper >= 0.7 else 0
         if right_gripper_cmd == self._right_gripper_cmd:
             right_gripper_cmd = None
@@ -368,12 +360,12 @@ class BiOpenPIPolicyBridge:
         action_dict: dict = {}
 
         # 左臂关节
-        for i in range(self.LEFT_JOINT_NUM):
+        for i in range(self.left_joint_num):
             action_dict[f"left_joint_pos{i}"] = float(left_action[i])
         action_dict["left_gripper_pos"] = left_gripper_cmd if left_gripper_cmd is not None else self._left_gripper_cmd
 
         # 右臂关节
-        for i in range(self.RIGHT_JOINT_NUM):
+        for i in range(self.right_joint_num):
             action_dict[f"right_joint_pos{i}"] = float(right_action[i])
         action_dict["right_gripper_pos"] = right_gripper_cmd if right_gripper_cmd is not None else self._right_gripper_cmd
 

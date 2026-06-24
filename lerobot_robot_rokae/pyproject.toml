@@ -6,7 +6,12 @@ requires-python = ">=3.9"
 
 dependencies = [
     "lerobot",
+    "rokae_python_wrapper",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lerobot_robot_rokae*"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

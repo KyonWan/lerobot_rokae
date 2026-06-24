@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lerobot-rokae-dev"
+version = "0.1.0"
+description = "Development meta-package: one-shot editable install for LeRobot Rokae stack"
+requires-python = ">=3.10,<3.11"
+# 本地成员由 setup.py editable_wheel hook 以 editable 方式安装（见根 setup.py）
+dependencies = []
+
+[project.optional-dependencies]
+policy = []
+
+[tool.setuptools]
+packages = []

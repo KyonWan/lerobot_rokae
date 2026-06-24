@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from lerobot.cameras import CameraConfig
 from lerobot.robots.config import RobotConfig
-from ..rokae_robot.config_rokae_robot import ControlMode, CallbackMode
+from ..rokae_robot.config_rokae_robot import ControlMode
 
 
 @RobotConfig.register_subclass("bi_rokae_robot")
@@ -24,26 +24,12 @@ class BiRokaeRobotConfig(RobotConfig):
     left_zmq_port: int = 5555
     right_zmq_port: int = 5556
 
-    # Basic params
-    left_joint_num: int = 7
-    right_joint_num: int = 7
-
     # 控制循环频率（Hz）。在录制脚本中会由 dataset.fps 自动覆盖，并传播到左右单臂的 RokaeRobotConfig。
     control_loop_fps: int | None = None
 
     # Control modes
     left_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    left_callback_mode: CallbackMode = CallbackMode.CART_VEL
     right_control_mode: ControlMode = ControlMode.CARTESIAN_IMPEDANCE
-    right_callback_mode: CallbackMode = CallbackMode.CART_VEL
-
-    # rokae_algo 运动学初始化参数（joint_pos 模式下 BiInverseKinematicsProcessor 使用）
-    left_rbv: list[float] = field(default_factory=list)
-    right_rbv: list[float] = field(default_factory=list)
-    left_min_joint: list[float] = field(default_factory=list)
-    left_max_joint: list[float] = field(default_factory=list)
-    right_min_joint: list[float] = field(default_factory=list)
-    right_max_joint: list[float] = field(default_factory=list)
 
     # Cameras (shared between both arms)
     cameras: dict[str, CameraConfig] = field(default_factory=dict)

@@ -1,61 +1,26 @@
 #!/bin/bash
-# 单SpaceMouse和单Rokae单臂机器人数据采集脚本
+# 录制入口（单臂 / 双臂相同）：可选绑核 + 调用 `lerobot_record`，具体机器与任务参数全部由命令行或 --config_path 提供。
 #
-# 恢复录制说明：
-# 如果录制中断，可以使用 rokae_record_resume.sh 恢复录制
-# 或者修改此脚本：
-#   1. 添加 --resume=true 参数
-#   2. 将 --dataset.root 改为上次录制的数据集路径（不要使用日期时间戳）
-#   3. 将 --dataset.num_episodes 改为要额外录制的episode数量（不是总数）
-# 示例：如果已录制50个episode，想再录制50个，设置 num_episodes=50
+# 多组参数推荐两种方式（二选一即可）：
+#   1) draccus 官方：把一组参数放进 yaml/json，用 --config_path=...，后面仍可追加覆盖项。
+#      仓库内示例: config/record/single_rokae_spacemouse_example.yaml
+#                config/record/bi_rokae_spacemouse_example.yaml
+#      ./scripts/record/rokae_record.sh --config_path=config/record/single_rokae_spacemouse_example.yaml
+#      ./scripts/record/rokae_record.sh --config_path=config/record/single_rokae_spacemouse_example.yaml --dataset.root="./dataset/run_$(date +%Y%m%d_%H%M%S)"
+#   2) 多个一行脚本：每个文件里写一条完整的 python ...（未入库的 .sh 可放任意目录并加入 .gitignore）。
+#
+# 需要绑 CPU 时（与旧脚本 taskset -c 0 类似）：
+#   export RECORD_TASKSET_CPUS=0
+#   ./scripts/record/rokae_record.sh --config_path=...
+#
+# 恢复录制：在参数里加 --resume=true，并把 --dataset.root 指到已有数据集目录等（与 LeRobot 文档一致）。
+export RECORD_TASKSET_CPUS=10
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/../.." || exit 1
 
-# 相机配置
-# CAMERAS_CONFIG="{external: {type: intelrealsense, serial_number_or_name: '809512060572', \
-# width: 640, height: 480, fps: 60, use_depth: false}}"
-DATASET_VCODEC="h264"
-
-# 相机配置
-# external 设为 640x480 时，rokae_record_plugin 会跳过 Python 裁切+resize（降低 obs_proc；需全幅画面请在相机端或改分辨率）
-# cpu_core 要求录制进程允许的 CPU 集合包含这些核（勿再用 taskset -c 0 单核，否则线程无法绑到 5/6/7）
-CAMERAS_CONFIG="{external: {type: orbbec, serial_number_or_index: 'CP2G85300022', \
-width: 640, height: 480, fps: 60, use_depth: false}, \
-left_wrist: {type: intelrealsense, serial_number_or_name: '260322274865', \
-width: 640, height: 480, fps: 60, use_depth: false}, \
-right_wrist: {type: intelrealsense, serial_number_or_name: '260322272759', \
-width: 640, height: 480, fps: 60, use_depth: false}}"
-
-# CAMERAS_CONFIG="{external: {type: orbbec, serial_number_or_index: 'CP2G85300022', \
-# width: 1280, height: 720, fps: 60, use_depth: false, cpu_core: 5}, \
-# left_wrist: {type: intelrealsense, serial_number_or_name: '260322274865', \
-# width: 640, height: 480, fps: 60, use_depth: false, cpu_core: 6}}"
-
-echo "[bi_rokae_record] dataset.vcodec=$DATASET_VCODEC"
-MIN_JOINT_RAD="[-2.93215, -1.91986, -2.93215, -0.872665, -2.93215, -0.872665, -0.872665]"
-MAX_JOINT_RAD="[2.93215, 1.91986, 2.93215, 2.35619, 2.93215, 0.872665, 0.872665]"
-RBV_M="[0.0,0.0,0.0,0.0,0.0,0.1745,0.0,0.0,0.314,0.01,0.0,0.0,-0.01,0.0,0.272,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.097]"
-MIN_JOINT_RAD="[-3.106686,-2.094395,-3.106686,-1.047198,-3.106686,-1.047198,-1.047198]"
-MAX_JOINT_RAD="[3.106686,2.094395,3.106686,2.530727,3.106686,1.047198,1.047198]"
-# 关节限位（弧度），由角度换算：JOINT_RANGE_MIN/MAX_CUSTOMIZE 度 -> 弧度
-
-
-taskset -c 0 python -m lerobot.scripts.lerobot_record \
-    --robot.type=rokae_robot \
-    --robot.zmq_port=5555 \
-    --robot.joint_num=7 \
-    --robot.control_mode=joint_position \
-    --robot.callback_mode=joint_pos \
-    --robot.rbv="$RBV_M" \
-    --robot.min_joint="$MIN_JOINT_RAD" \
-    --robot.max_joint="$MAX_JOINT_RAD" \
-    --teleop.type=spacemouse \
-    --teleop.device_index=0 \
-    --dataset.vcodec="$DATASET_VCODEC" \
-    --dataset.repo_id=test_2025/rokae_record \
-    --dataset.root="/home/rokae/code/wzy/lerobot_rokae/dataset/test_$(date +"%Y%m%d_%H%M%S")" \
-    --dataset.num_episodes=10 \
-    --dataset.episode_time_s=100 \
-    --dataset.single_task="Grab the cube" \
-    --dataset.push_to_hub=False \
-    --log_slow_loop_periodically=True \
-    --display_data=False
-    # --robot.cameras="$CAMERAS_CONFIG"
+if [[ -n "${RECORD_TASKSET_CPUS:-}" ]]; then
+    exec taskset -c "$RECORD_TASKSET_CPUS" python -m lerobot.scripts.lerobot_record "$@"
+else
+    exec python -m lerobot.scripts.lerobot_record "$@"
+fi
