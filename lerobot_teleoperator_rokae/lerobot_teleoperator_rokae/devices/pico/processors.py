@@ -153,6 +153,10 @@ class PicoIntegrateFlanInBaseFromStartProcessor(ProcessorStep):
 @dataclass
 class PicoGripperProcessor(ProcessorStep):
     pipeline: ArmPipeline[PicoArmRuntime]
+    trigger_reverse: bool = True
+    trigger_threshold: float = 0.5
+    close_position: float = 0.0
+    open_position: float = 1.0
 
     @property
     def is_bimanual(self) -> bool:
@@ -188,16 +192,33 @@ class PicoGripperProcessor(ProcessorStep):
             rt.gripper_state = (
                 override if override is not None else cfg.initial_gripper_state
             )
+            rt.last_gripper_trigger = self.open_position
+
+    @property
+    def raw_open_trigger(self) -> float:
+        return 0.0 if self.trigger_reverse else 1.0
+
+    def _binarize_trigger(self, raw_trigger: float) -> float:
+        trigger = 1.0 - raw_trigger if self.trigger_reverse else raw_trigger
+        if trigger < self.trigger_threshold:
+            return self.close_position
+        return self.open_position
 
     def __call__(self, transition: Transition) -> Transition:
         transition = transition.copy()
         action = transition.get(TransitionKey.ACTION)
         for cfg, rt in zip(self.pipeline.arms, self.pipeline.runtimes):
             p = cfg.key_prefix
-            raw = action.get(f"{p}gripper_pos", rt.gripper_state)
-            gripper_state = int(round(float(raw)))
-            rt.gripper_state = gripper_state
-            action[f"{p}gripper_pos"] = float(gripper_state)
+            raw_trigger = float(action.get(f"{p}gripper_trigger", self.raw_open_trigger))
+            gripper_trigger = self._binarize_trigger(raw_trigger)
+            if (
+                rt.last_gripper_trigger == self.open_position
+                and gripper_trigger == self.close_position
+            ):
+                rt.gripper_state = 0 if rt.gripper_state == 1 else 1
+            rt.last_gripper_trigger = gripper_trigger
+            action[f"{p}gripper_pos"] = float(rt.gripper_state)
+            action.pop(f"{p}gripper_trigger", None)
         transition[TransitionKey.ACTION] = action
         return transition
 
@@ -207,6 +228,7 @@ class PicoGripperProcessor(ProcessorStep):
         action_features = features[PipelineFeatureType.ACTION]
         for cfg in self.pipeline.arms:
             register_gripper_action_feature(action_features, cfg.key_prefix)
+            action_features.pop(f"{cfg.key_prefix}gripper_trigger", None)
         return features
 
 

@@ -18,6 +18,5 @@ class PicoConfig(TeleoperatorConfig):
     xyz_scale_factor: float = 0.5           # 位置增量缩放因子
     rot_scale_factor: float = 0.5           # 姿态增量缩放因子
     R_headset_world: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0]) # pico 头显到世界坐标系的旋转矩阵，xyz Euler angles in degrees
-    control_mode: str = "pico"
     trans_max_vel: float = 0.1
     rot_max_vel: float = 0.2

@@ -215,6 +215,10 @@ def _make_bimanual_pipelines(
                 ),
             ],
             control_period=1.0 / cfg.dataset.fps,
+            trigger_reverse=cfg.teleop.trigger_reverse,
+            trigger_threshold=cfg.teleop.trigger_threshold,
+            close_position=cfg.teleop.close_position,
+            open_position=cfg.teleop.open_position,
         )
         teleop_action_processor_steps = _pico_pipeline.steps
     else:
@@ -320,6 +324,10 @@ def _make_single_arm_pipelines(
                 )
             ],
             control_period=1.0 / cfg.dataset.fps,
+            trigger_reverse=cfg.teleop.trigger_reverse,
+            trigger_threshold=cfg.teleop.trigger_threshold,
+            close_position=cfg.teleop.close_position,
+            open_position=cfg.teleop.open_position,
         )
         teleop_action_processor_steps = _pico_pipeline.steps
     else:
@@ -483,5 +491,3 @@ def reset_robot_and_grippers(
     # Reset gripper states for supported teleop systems
     if teleop is not None and getattr(teleop, "name", None) in ("spacemouse", "bi_spacemouse", "pico_single", "pico"):
         reset_gripper_states(robot, teleop_action_processor)
-
-
