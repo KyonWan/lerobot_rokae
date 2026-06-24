@@ -99,6 +99,7 @@ def init_kinematics_backend(pipeline: ArmPipeline[RT]) -> None:
             cfg.joint_num,
             robot_type=cfg.robot_type,
             robot_ip=cfg.robot_ip,
+            trans_max_vel=cfg.trans_max_vel,
         )
         if isinstance(rt.ik_solver, Pink7AxisIkSolver):
             rt.ik_solver.request_reset()

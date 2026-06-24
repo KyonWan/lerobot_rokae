@@ -46,9 +46,16 @@ class SolveArmProcessor(ProcessorStep):
         cart_pos_flan_in_base = read_action_cart_pos(action, cfg.key_prefix)
         T_flan = pose_to_transform(cart_pos_flan_in_base)
 
+        prev_flan = rt.cart_pos_flan_in_base
+        cart_vel = (
+            (cart_pos_flan_in_base - prev_flan) / pipeline.control_period
+            if prev_flan is not None
+            else None
+        )
+
         assert rt.ik_solver is not None
         q_solution, ik_ok = rt.ik_solver.solve(
-            T_flan, q_current, pipeline.control_period
+            T_flan, q_current, pipeline.control_period, cart_vel=cart_vel
         )
 
         q_out = q_solution if ik_ok else q_current.tolist()

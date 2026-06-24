@@ -18,7 +18,7 @@ robot:
   cameras:
     left_wrist:
       type: intelrealsense
-      serial_number_or_name: "260322271849"
+      serial_number_or_name: "260322273757"
       width: 640
       height: 480
       fps: 60

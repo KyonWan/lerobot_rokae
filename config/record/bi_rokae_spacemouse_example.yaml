@@ -16,28 +16,28 @@ robot:
   right_zmq_port: 5556
   left_control_mode: joint_position
   right_control_mode: joint_position
-  # cameras:
-  #   external:
-  #     type: orbbec
-  #     serial_number_or_index: "CP2G8530004K"
-  #     width: 640
-  #     height: 480
-  #     fps: 60
-  #     use_depth: false
-  #   left_wrist:
-  #     type: intelrealsense
-  #     serial_number_or_name: "260322271562"
-  #     width: 640
-  #     height: 480
-  #     fps: 60
-  #     use_depth: false
-  #   right_wrist:
-  #     type: intelrealsense
-  #     serial_number_or_name: "352122272829"
-  #     width: 640
-  #     height: 480
-  #     fps: 60
-  #     use_depth: false
+  cameras:
+    external:
+      type: intelrealsense
+      serial_number_or_name: "252122301697"
+      width: 640
+      height: 480
+      fps: 60
+      use_depth: false
+    left_wrist:
+      type: intelrealsense
+      serial_number_or_name: "260322273757"
+      width: 640
+      height: 480
+      fps: 60
+      use_depth: false
+    right_wrist:
+      type: intelrealsense
+      serial_number_or_name: "260322278464"
+      width: 640
+      height: 480
+      fps: 60
+      use_depth: false
 
 teleop:
   type: bi_spacemouse
@@ -46,8 +46,8 @@ teleop:
 
 dataset:
   repo_id: test_2025/bi_rokae_record
-  single_task: "Put the two white parts into the gray box."
-  root: ./dataset/bi_rokae_example
+  single_task: "Put the two white parts into the gray box,put the two blue parts into the blue box"
+  root: ./dataset/bi_rokae_ar5/dual_ar5_test01
   fps: 30
   num_episodes: 100
   episode_time_s: 300
