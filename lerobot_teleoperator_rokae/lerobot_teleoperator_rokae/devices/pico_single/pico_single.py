@@ -49,4 +49,5 @@ class PicoSingle(PicoTeleopBase):
                 "target_wy": float(state.current_delta_rot[1]),
                 "target_wz": float(state.current_delta_rot[2]),
                 "gripper_trigger": float(state.raw_gripper_trigger),
+                "posture_active": bool(state.was_active),
             }

@@ -12,20 +12,35 @@ from .config_pico import PicoConfig
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
 
-DEFAULT_MANIPULATOR_CONFIG = {
-    "left_arm": PicoInputSpec(
+CONTROLLER_INPUT_SPECS = {
+    "left": PicoInputSpec(
         pose_source="left_controller",
         clutch_button="left_grip",
         gripper_trigger_source="left_trigger",
-        action_prefix="left",
     ),
-    "right_arm": PicoInputSpec(
+    "right": PicoInputSpec(
         pose_source="right_controller",
         clutch_button="right_grip",
         gripper_trigger_source="right_trigger",
-        action_prefix="right",
     ),
 }
+
+
+def _arm_input_spec(controller: str, action_prefix: str) -> PicoInputSpec:
+    controller_spec = CONTROLLER_INPUT_SPECS[controller]
+    return PicoInputSpec(
+        pose_source=controller_spec.pose_source,
+        clutch_button=controller_spec.clutch_button,
+        gripper_trigger_source=controller_spec.gripper_trigger_source,
+        action_prefix=action_prefix,
+    )
+
+
+def _build_input_specs(config: PicoConfig) -> dict[str, PicoInputSpec]:
+    return {
+        "left_arm": _arm_input_spec(config.left_arm_controller, "left"),
+        "right_arm": _arm_input_spec(config.right_arm_controller, "right"),
+    }
 
 
 class Pico(PicoTeleopBase):
@@ -41,7 +56,7 @@ class Pico(PicoTeleopBase):
     def __init__(self, config: PicoConfig):
         super().__init__(
             config,
-            input_specs=DEFAULT_MANIPULATOR_CONFIG,
+            input_specs=_build_input_specs(config),
             euler_sequence="xyz",
         )
 
@@ -67,6 +82,7 @@ class Pico(PicoTeleopBase):
                 action[f"{prefix}_target_wy"] = float(state.current_delta_rot[1])
                 action[f"{prefix}_target_wz"] = float(state.current_delta_rot[2])
                 action[f"{prefix}_gripper_trigger"] = float(state.raw_gripper_trigger)
+                action[f"{prefix}_posture_active"] = bool(state.was_active)
 
         return action
 
@@ -81,7 +97,7 @@ if __name__ == "__main__":
         xr_client=xr_client,
         fps=60.0,
         xyz_scale_factor=0.5,
-        rot_scale_factor=0.5,
+        rot_scale_factor=0.2,
     )
 
     print(f"[TEST] Initializing Pico with config: {teleop_config}")

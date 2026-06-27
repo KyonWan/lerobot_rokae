@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Optional, Tuple
 
+import numpy as np
 from lerobot.processor import RobotAction, RobotObservation, RobotProcessorPipeline
 from lerobot.processor.converters import (
     observation_to_transition,
@@ -26,8 +28,14 @@ from lerobot_robot_rokae.lerobot_robot_rokae.devices.rokae_robot.config_rokae_ro
     infer_callback_mode,
 )
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.teleop_common.config import (
+    ArmConfig,
+    CoreArmRuntime,
     arm_config,
+    ensure_cart_pos_flan_in_base,
+    write_arm_joints,
 )
+from rokae_python_wrapper.rokae_kinematics.action_fields import obs_joint_vector
+from rokae_python_wrapper.rokae_kinematics.transform_utils import pose_to_transform
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.spacemouse.pipeline import (
     build_arm_pipeline,
     find_arm_pipeline,
@@ -35,6 +43,11 @@ from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.spacemouse.pi
 from lerobot_teleoperator_rokae.lerobot_teleoperator_rokae.devices.pico.pipeline import (
     build_pico_arm_pipeline,
 )
+
+
+POSTURE_RESET_SETTLE_STEPS = 20
+POSTURE_RESET_SETTLE_CART_SPEED = 0.004
+POSTURE_RESET_SETTLE_COST_SCALE = 0.01
 
 
 def _callback_mode_from_control_mode(control_mode) -> str:
@@ -468,6 +481,88 @@ def reset_gripper_states(
         return
 
 
+def _callback_mode_value(obj) -> str:
+    callback_mode = getattr(obj, "callback_mode", None)
+    return str(getattr(callback_mode, "value", callback_mode))
+
+
+def _supports_joint_pos_reset_settle(robot: Robot, arm_pipeline) -> bool:
+    if arm_pipeline.is_bimanual:
+        left_arm = getattr(robot, "left_arm", None)
+        right_arm = getattr(robot, "right_arm", None)
+        return (
+            _callback_mode_value(left_arm) == "joint_pos"
+            and _callback_mode_value(right_arm) == "joint_pos"
+        )
+    return _callback_mode_value(robot) == "joint_pos"
+
+
+def _write_reset_settle_gripper_action(action: dict, arm_pipeline) -> None:
+    if arm_pipeline.is_bimanual:
+        action["left_gripper_pos"] = float(arm_pipeline.initial_left_gripper_state)
+        action["right_gripper_pos"] = float(arm_pipeline.initial_right_gripper_state)
+    else:
+        action["gripper_pos"] = float(arm_pipeline.initial_gripper_state)
+
+
+def _solve_reset_settle_arm(
+    cfg: ArmConfig,
+    rt: CoreArmRuntime,
+    obs: dict,
+    dt: float,
+) -> list[float] | None:
+    if cfg.joint_num != 7 or rt.ik_solver is None:
+        return None
+
+    ensure_cart_pos_flan_in_base(cfg, rt, obs)
+    assert rt.cart_pos_flan_in_base is not None
+    q_current = obs_joint_vector(obs, cfg.joint_num, cfg.key_prefix)
+    settle_cart_vel = np.zeros(6, dtype=np.float64)
+    settle_cart_vel[0] = POSTURE_RESET_SETTLE_CART_SPEED
+    q_solution, ik_ok = rt.ik_solver.solve(
+        pose_to_transform(rt.cart_pos_flan_in_base),
+        q_current,
+        dt,
+        cart_vel=settle_cart_vel,
+        posture_active=True,
+        posture_cost_scale=POSTURE_RESET_SETTLE_COST_SCALE,
+    )
+    return q_solution if ik_ok else None
+
+
+def settle_rokae_posture_before_record(
+    robot: Robot,
+    teleop_action_processor: RobotProcessorPipeline,
+) -> None:
+    arm_pipeline = find_arm_pipeline(teleop_action_processor.steps)
+    if arm_pipeline is None:
+        return
+    if not _supports_joint_pos_reset_settle(robot, arm_pipeline):
+        return
+    if not any(cfg.joint_num == 7 for cfg in arm_pipeline.arms):
+        return
+    if not hasattr(robot, "get_observation") or not hasattr(robot, "send_action"):
+        return
+
+    logger = logging.getLogger(__name__)
+    dt = float(arm_pipeline.control_period)
+    for step_idx in range(POSTURE_RESET_SETTLE_STEPS):
+        obs = robot.get_observation()
+        action: dict = {}
+        for cfg, rt in zip(arm_pipeline.arms, arm_pipeline.runtimes):
+            q_solution = _solve_reset_settle_arm(cfg, rt, obs, dt)
+            if q_solution is None:
+                q_solution = obs_joint_vector(obs, cfg.joint_num, cfg.key_prefix).tolist()
+            write_arm_joints(action, cfg.key_prefix, q_solution, cfg.joint_num)
+        _write_reset_settle_gripper_action(action, arm_pipeline)
+        try:
+            robot.send_action(action)
+        except Exception as exc:
+            logger.warning("Posture reset settle stopped at step %d: %s", step_idx, exc)
+            return
+        time.sleep(max(dt, 0.0))
+
+
 def reset_robot_and_grippers(
     robot: Robot,
     teleop,
@@ -491,3 +586,4 @@ def reset_robot_and_grippers(
     # Reset gripper states for supported teleop systems
     if teleop is not None and getattr(teleop, "name", None) in ("spacemouse", "bi_spacemouse", "pico_single", "pico"):
         reset_gripper_states(robot, teleop_action_processor)
+        settle_rokae_posture_before_record(robot, teleop_action_processor)

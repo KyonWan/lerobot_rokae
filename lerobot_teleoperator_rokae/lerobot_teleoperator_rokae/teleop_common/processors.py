@@ -52,11 +52,22 @@ class SolveArmProcessor(ProcessorStep):
             if prev_flan is not None
             else None
         )
+        posture_active_key = f"{cfg.key_prefix}posture_active"
+        posture_active = (
+            bool(action[posture_active_key])
+            if posture_active_key in action
+            else None
+        )
 
         assert rt.ik_solver is not None
         q_solution, ik_ok = rt.ik_solver.solve(
-            T_flan, q_current, pipeline.control_period, cart_vel=cart_vel
+            T_flan,
+            q_current,
+            pipeline.control_period,
+            cart_vel=cart_vel,
+            posture_active=posture_active,
         )
+        action.pop(posture_active_key, None)
 
         q_out = q_solution if ik_ok else q_current.tolist()
         write_arm_joints(action, cfg.key_prefix, q_out, cfg.joint_num)
