@@ -37,6 +37,10 @@ def build_pico_arm_pipeline(
     *,
     arms: list[ArmConfig],
     control_period: float,
+    trigger_reverse: bool = True,
+    trigger_threshold: float = 0.5,
+    close_position: float = 0.0,
+    open_position: float = 1.0,
 ) -> PicoArmPipeline:
     pipeline = PicoArmPipeline(
         arms=arms,
@@ -44,7 +48,13 @@ def build_pico_arm_pipeline(
     )
     init_arm_pipeline(pipeline, _runtime_factory)
 
-    gripper = PicoGripperProcessor(pipeline)
+    gripper = PicoGripperProcessor(
+        pipeline,
+        trigger_reverse=trigger_reverse,
+        trigger_threshold=trigger_threshold,
+        close_position=close_position,
+        open_position=open_position,
+    )
     pipeline.gripper_processor = gripper
     pipeline.steps = [
         gripper,
