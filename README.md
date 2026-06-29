@@ -93,7 +93,7 @@ sudo apt-get update
 sudo apt-get install -y libhidapi-dev libhidapi-hidraw0
 ```
 
-更多说明见 [lerobot_teleoperator_rokae/README.md](lerobot_teleoperator_rokae/README.md)。
+更多录制与遥操作说明见 [RECORDING.md](RECORDING.md)。
 
 ### 5. 分步安装 / 仅 wrapper（高级，可跳过）
 

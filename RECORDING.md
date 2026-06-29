@@ -76,7 +76,7 @@ python -m lerobot.scripts.lerobot_record \
   --robot.control_mode=joint_impedance \
   --teleop.type=pico_single \
   --teleop.side=right \
-  --teleop.R_headset_world='[90.0, 0.0, 180.0]' \
+  --teleop.R_headset_world='[90.0, 0.0, 90.0]' \
   --dataset.repo_id=test_2025/rokae_record \
   --dataset.root="./dataset/pico_single_$(date +%Y%m%d_%H%M%S)" \
   --dataset.num_episodes=10 \
