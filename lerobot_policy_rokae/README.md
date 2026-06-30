@@ -17,20 +17,18 @@ This package provides:
 
 ## Install
 
+This package is experimental/debug-only for now. It is not installed by the default `requirements.txt` and is not recommended for regular recording or teleoperation users.
+
 From the repo root:
 
 ```bash
-pip install -e lerobot
-pip install -e lerobot_policy_rokae
-pip install -e rokae_policy_runtime
+pip install -r requirements-policy.txt
 ```
 
 If you also run real hardware:
 
 ```bash
-pip install -e lerobot_robot_rokae
-pip install -e lerobot_teleoperator_rokae
-pip install -e rokae_python_wrapper
+pip install -r requirements.txt
 ```
 
 ## Plugin discovery
@@ -77,7 +75,7 @@ Default profile behavior:
 
 ## Minimal acceptance checklist
 
-- `pip install -e lerobot_policy_rokae` succeeds
+- `pip install -r requirements-policy.txt` succeeds from the repository root
 - `lerobot-train --help` runs without plugin import errors
 - `rokae_custom` is discoverable as a policy type
 - processor hub profiles include: `act`, `diffusion`, `smolvla`, `xvla`
@@ -89,15 +87,7 @@ Default profile behavior:
 3. Add per-policy feature validation against dataset metadata.
 4. Add unit tests for profile routing and step serialization.
 
-## Runtime migration note
-
-Old command path:
-
-```bash
-python -m lerobot_policy_rokae.cli.run_rokae_openpi --help
-```
-
-New command path:
+## Related runtime entry point
 
 ```bash
 python -m rokae_policy_runtime.openpi.cli --help

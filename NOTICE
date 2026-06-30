@@ -1,0 +1,22 @@
+LeRobot Rokae
+Copyright 2026 ROKAE Robotics.
+
+This product includes software developed by ROKAE Robotics.
+
+This repository includes a modified version of LeRobot. Files modified from
+upstream LeRobot carry a "Modified by ROKAE Robotics in 2026." notice.
+
+This repository also includes or depends on third-party or separately
+licensed components. Components including LeRobot, Rokae SDK native binaries,
+XRoboToolkit components, Python packages, model weights, datasets, and system
+packages are not relicensed by this NOTICE file. See the corresponding
+upstream license files, package metadata, and vendor agreements for those
+components.
+
+This repository may call FFmpeg and video codecs such as H.264/AVC, HEVC,
+and AV1 from the user's runtime environment. ROKAE Robotics does not
+distribute those codec binaries with this repository and does not provide
+patent or third-party codec licenses. Users and distributors are responsible
+for confirming FFmpeg license compliance and codec patent compliance when
+commercially distributing, integrating, publishing encoded video data, or
+redistributing runtime environments.

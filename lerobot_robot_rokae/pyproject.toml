@@ -3,6 +3,7 @@ name = "lerobot_robot_rokae"
 version = "0.1.0"
 description = "LeRobot plugin for Rokae robots"
 requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
 
 dependencies = [
     "lerobot",
@@ -10,7 +11,7 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["lerobot_robot_rokae*"]
 
 [build-system]

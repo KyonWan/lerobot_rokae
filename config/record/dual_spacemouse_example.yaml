@@ -1,0 +1,55 @@
+# 双臂 Rokae + 双 SpaceMouse 录制示例（draccus / --config_path）
+# 用法（在仓库根目录）:
+#   ./scripts/record/rokae_record.sh --config_path=config/record/dual_spacemouse_example.yaml
+# 动态 dataset.root 示例:
+#   ... --dataset.root="./datasets/dual_$(date +%Y%m%d_%H%M%S)"
+# 复制后按现场修改: dataset.root、SpaceMouse device index、相机 serial 等。
+
+resume: false
+display_data: false
+log_loop_timing_periodically: false
+
+robot:
+  type: bi_rokae_robot
+  left_zmq_port: 5555
+  right_zmq_port: 5556
+  left_control_mode: joint_position
+  right_control_mode: joint_position
+  # cameras:
+  #   external:
+  #     type: intelrealsense
+  #     serial_number_or_name: "252122301697"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+  #   left_wrist:
+  #     type: intelrealsense
+  #     serial_number_or_name: "260322273757"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+  #   right_wrist:
+  #     type: intelrealsense
+  #     serial_number_or_name: "260322278464"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+
+teleop:
+  type: bi_spacemouse
+  left_device_index: 0
+  right_device_index: 1
+
+dataset:
+  repo_id: rokae/dual_arm_example
+  single_task: "Pick and place the object with both arms."
+  root: ./datasets/dual_example
+  fps: 30
+  num_episodes: 100
+  episode_time_s: 300
+  push_to_hub: false
+  video: true
+  vcodec: "h264"

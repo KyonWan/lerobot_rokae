@@ -1,0 +1,45 @@
+# 单臂 Rokae + SpaceMouse 录制示例（draccus / --config_path）
+# 用法（在仓库根目录）:
+#   ./scripts/record/rokae_record.sh --config_path=config/record/single_spacemouse_example.yaml
+# 带时间戳的输出目录可在命令行覆盖 dataset.root，例如:
+#   ... --dataset.root="./datasets/single_$(date +%Y%m%d_%H%M%S)"
+# 复制后按现场修改: dataset.root、zmq_port、SpaceMouse device index、相机 serial 等。
+
+resume: false
+display_data: false
+log_loop_timing_periodically: true
+
+robot:
+  type: rokae_robot
+  control_mode: joint_position
+  zmq_port: 5556
+  # cameras:
+  #   external:
+  #     type: intelrealsense
+  #     serial_number_or_name: "252122301697"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+  #   wrist:
+  #     type: intelrealsense
+  #     serial_number_or_name: "260322273757"
+  #     width: 640
+  #     height: 480
+  #     fps: 60
+  #     use_depth: false
+
+teleop:
+  type: spacemouse
+  device_index: 0
+
+dataset:
+  repo_id: rokae/single_arm_example
+  single_task: "Pick and place the object."
+  root: ./datasets/single_example
+  fps: 30
+  num_episodes: 100
+  episode_time_s: 300
+  push_to_hub: false
+  video: true
+  vcodec: "h264"

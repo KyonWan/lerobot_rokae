@@ -5,13 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lerobot-rokae-dev"
 version = "0.1.0"
-description = "Development meta-package: one-shot editable install for LeRobot Rokae stack"
+description = "Workspace metadata for the LeRobot Rokae stack"
 requires-python = ">=3.10,<3.11"
-# 本地成员由 setup.py editable_wheel hook 以 editable 方式安装（见根 setup.py）
+license = {text = "Apache-2.0"}
+# 本仓库使用 requirements.txt 安装本地 LeRobot/Rokae workspace 成员。
 dependencies = []
-
-[project.optional-dependencies]
-policy = []
 
 [tool.setuptools]
 packages = []
