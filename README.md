@@ -1,6 +1,6 @@
-# LeRobot with Rokae
+# LeRobot Rokae
 
-LeRobot 框架的 Rokae 机器人集成，支持数据采集、训练和部署。
+LeRobot 框架的 Rokae 机器人集成，默认支持 Rokae 机器人控制、SpaceMouse/Pico 遥操作和数据采集。Policy/runtime 相关代码仍处于调试/试验阶段，默认安装不会启用。
 
 ## 项目结构
 
@@ -8,6 +8,9 @@ LeRobot 框架的 Rokae 机器人集成，支持数据采集、训练和部署�
 - `lerobot_robot_rokae/` - Rokae 机器人设备集成
 - `lerobot_teleoperator_rokae/` - SpaceMouse 和 Pico 遥操作设备集成
 - `rokae_python_wrapper/` - Rokae Python SDK 封装（Git 子模块）
+- `rokae_policy_runtime/` - policy runtime bridge（experimental/debug）
+- `lerobot_policy_rokae/` - LeRobot policy 插件 scaffold（experimental/debug）
+- `config/record/` - 录制示例配置
 
 ## 安装
 
@@ -16,7 +19,7 @@ LeRobot 框架的 Rokae 机器人集成，支持数据采集、训练和部署�
 如果尚未克隆仓库，可以使用 `--recursive` 选项一次性克隆所有子模块：
 
 ```bash
-git clone --recursive git@gitlab.i.rokae.com:embodied_ai_group/lerobot_rokae.git
+git clone --recursive <lerobot_rokae_repo_url>
 cd lerobot_rokae
 ```
 
