@@ -17,20 +17,18 @@ This package provides:
 
 ## Install
 
+This package is experimental/debug-only for now. It is not installed by the default `requirements.txt` and is not recommended for regular recording or teleoperation users.
+
 From the repo root:
 
 ```bash
-pip install -e lerobot
-pip install -e lerobot_policy_rokae
-pip install -e rokae_policy_runtime
+pip install -r requirements-policy.txt
 ```
 
 If you also run real hardware:
 
 ```bash
-pip install -e lerobot_robot_rokae
-pip install -e lerobot_teleoperator_rokae
-pip install -e rokae_python_wrapper
+pip install -r requirements.txt
 ```
 
 ## Plugin discovery

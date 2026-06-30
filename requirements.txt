@@ -1,0 +1,4 @@
+-e ./lerobot[intelrealsense]
+-e ./rokae_python_wrapper
+-e ./lerobot_robot_rokae
+-e ./lerobot_teleoperator_rokae

@@ -64,24 +64,26 @@ conda env create -f environment.yml
 在仓库根目录 `lerobot_rokae/` 执行（需 pip >= 21.2，建议先 `pip install -U pip`）：
 
 ```bash
-pip install --no-build-isolation -e . \
+pip install -r requirements.txt \
   -i https://pypi.tuna.tsinghua.edu.cn/simple \
   --trusted-host pypi.tuna.tsinghua.edu.cn
 ```
 
-> `--no-build-isolation` 用于让根目录 meta 包在安装时以 **editable** 方式拉齐本地子包（见根 [`setup.py`](setup.py)）。若省略该 flag，构建隔离环境内无法完成子包 editable 安装。
-
-上述命令会通过根目录 [`pyproject.toml`](pyproject.toml) + [`setup.py`](setup.py) 一次性 editable 安装：
+上述命令会通过 [`requirements.txt`](requirements.txt) 一次性 editable 安装默认公开组件：
 
 - `lerobot[intelrealsense]`（含 RealSense 相机依赖）
 - `rokae_python_wrapper`
 - `lerobot_robot_rokae`
 - `lerobot_teleoperator_rokae`
 
-若还需 policy 推理栈，可安装 optional extra：
+### 2.1 Experimental policy runtime（调试/试验阶段）
+
+`rokae_policy_runtime` 和 `lerobot_policy_rokae` 当前仍处于调试/试验阶段，接口、依赖和使用方式可能变化；普通录制和遥操作用户不建议安装或依赖它们。
+
+如果你正在开发 policy runtime，可额外执行：
 
 ```bash
-pip install --no-build-isolation -e ".[policy]" \
+pip install -r requirements-policy.txt \
   -i https://pypi.tuna.tsinghua.edu.cn/simple \
   --trusted-host pypi.tuna.tsinghua.edu.cn
 ```
@@ -99,10 +101,10 @@ sudo apt-get install -y libhidapi-dev libhidapi-hidraw0
 
 ### 4. 分步安装 / 仅 wrapper（高级，可跳过）
 
-> 仅在**不使用第 3 步一键安装**时执行本节。  
-> 如果你已经执行了第 3 步，请直接跳过，避免重复安装。
+> 仅在**不使用第 2 步一键安装**时执行本节。  
+> 如果你已经执行了第 2 步，请直接跳过，避免重复安装。
 
-若不用根目录 meta 包，或只需单独开发某一子包，可分别 editable 安装：
+若不用默认 requirements，或只需单独开发某一子包，可分别 editable 安装：
 
 ```bash
 pip install -e "./lerobot[intelrealsense]"
@@ -110,6 +112,8 @@ pip install -e ./rokae_python_wrapper
 pip install -e ./lerobot_robot_rokae
 pip install -e ./lerobot_teleoperator_rokae
 ```
+
+policy runtime 调试/试验模块如需单独开发，可执行 `pip install -r requirements-policy.txt`。
 
 `rokae_python_wrapper` 亦可单独 clone 后在项目根 `pip install -e .`（见 [rokae_python_wrapper/README.md](rokae_python_wrapper/README.md)）。
 

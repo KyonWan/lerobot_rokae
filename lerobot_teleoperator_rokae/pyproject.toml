@@ -14,8 +14,11 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["lerobot_teleoperator_rokae*"]
+
+[tool.setuptools.package-data]
+"lerobot_teleoperator_rokae" = ["setup/*"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

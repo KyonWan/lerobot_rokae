@@ -1,0 +1,3 @@
+# Experimental/debug policy runtime. Install only if you are developing these modules.
+-e ./rokae_policy_runtime
+-e ./lerobot_policy_rokae
