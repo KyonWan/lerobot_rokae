@@ -23,7 +23,9 @@ venv.bak/
 __pypackages__/
 node_modules/
 
-dataset/
+# Local recording outputs.
+/dataset/
+/datasets/
 
 # Lock files
 poetry.lock

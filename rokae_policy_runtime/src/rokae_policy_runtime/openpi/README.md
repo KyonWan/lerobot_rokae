@@ -29,14 +29,14 @@
 
 ### 1. 安装 Python 包
 
-在仓库根目录执行（需已能 `import lerobot`）：
+在仓库根目录执行：
 
 ```bash
-pip install -e rokae_policy_runtime
-pip install -e lerobot_robot_rokae
+pip install -r requirements.txt
+pip install -r requirements-policy.txt
 ```
 
-`rokae_policy_runtime` 已声明依赖 `openpi-client`（WebSocket 客户端）；若环境未装齐，请按报错补装。
+`rokae_policy_runtime` 已声明依赖 `openpi-client`（WebSocket 客户端）。
 
 ### 2. 启动 ZMQ 服务器（另开终端）
 
@@ -49,7 +49,7 @@ python -m rokae_python_wrapper.rokae_zmq_server \
     --zmq_port 5555 \
     --zmq_transport ipc \
     --joint_num 6 \
-    --q_drag 71,10,-114,0,-55,180
+    --reset_joint_pos 71,10,-114,0,-55,180
 ```
 
 参数以你现场机器人与 `rokae_python_wrapper` 文档为准。

@@ -49,18 +49,20 @@ cd ..
 
 ### 1. 创建 Conda 环境
 
+推荐显式使用 `conda-forge` 创建环境：
+
 ```bash
 conda create -y -n lerobot -c conda-forge --override-channels --strict-channel-priority python=3.10 ffmpeg pip
 conda activate lerobot
 ```
 
-上面的 `--override-channels` 会忽略用户全局 `.condarc` 里的 `defaults` / Anaconda 镜像源。
-
-[`environment.yml`](environment.yml) 也只声明 `conda-forge`，并通过 `nodefaults` 避免追加默认源，可用于 CI 或已经清理过全局 conda 源的机器。仓库还提供了 [`.condarc`](.condarc)，其中 `allowlist_channels` 只允许 `conda-forge`：
+也可以使用仓库提供的 [`environment.yml`](environment.yml)：
 
 ```bash
 conda env create -f environment.yml
 ```
+
+本仓库的 Conda 配置只使用 `conda-forge`。
 
 ### 2. 一键安装（推荐）
 
