@@ -28,8 +28,8 @@ cd rokae_python_wrapper
 
 3. 录制配置文件
 
-- 单臂 SpaceMouse：`config/record/single_rokae_spacemouse_example.yaml`
-- 双臂 SpaceMouse：`config/record/bi_rokae_spacemouse_example.yaml`
+- 单臂 SpaceMouse：`config/record/single_spacemouse_example.yaml`
+- 双臂 SpaceMouse：`config/record/dual_spacemouse_example.yaml`
 
 > 录制侧无需重复配置 `joint_num`/`robot_ip`，由 ZMQ server 的 `get_robot_info()` 提供。
 
@@ -44,8 +44,8 @@ cd rokae_python_wrapper
 例如：
 
 ```bash
-./scripts/record/rokae_record.sh --config_path=config/record/single_rokae_spacemouse_example.yaml
-./scripts/record/rokae_record.sh --config_path=config/record/bi_rokae_spacemouse_example.yaml
+./scripts/record/rokae_record.sh --config_path=config/record/single_spacemouse_example.yaml
+./scripts/record/rokae_record.sh --config_path=config/record/dual_spacemouse_example.yaml
 ```
 
 ## 单臂录制
@@ -53,14 +53,14 @@ cd rokae_python_wrapper
 ### SpaceMouse（推荐）
 
 ```bash
-./scripts/record/rokae_record.sh --config_path=config/record/single_rokae_spacemouse_example.yaml
+./scripts/record/rokae_record.sh --config_path=config/record/single_spacemouse_example.yaml
 ```
 
 常用覆盖参数示例：
 
 ```bash
 ./scripts/record/rokae_record.sh \
-  --config_path=config/record/single_rokae_spacemouse_example.yaml \
+  --config_path=config/record/single_spacemouse_example.yaml \
   --dataset.root="./dataset/run_$(date +%Y%m%d_%H%M%S)" \
   --dataset.num_episodes=10
 ```
@@ -90,7 +90,7 @@ python -m lerobot.scripts.lerobot_record \
 ### 双 SpaceMouse
 
 ```bash
-./scripts/record/rokae_record.sh --config_path=config/record/bi_rokae_spacemouse_example.yaml
+./scripts/record/rokae_record.sh --config_path=config/record/dual_spacemouse_example.yaml
 ```
 
 关键参数：

@@ -161,7 +161,7 @@ policy runtime 调试/试验模块如需单独开发，可执行 `pip install -r
 
 - 单臂 / 双臂启动与录制
 - SpaceMouse / Pico 录制示例
-- `config/record/*.yaml` 用法
+- `config/record/*.yaml` 用法；示例按 teleop 类型拆分，见 [`config/record/README.md`](config/record/README.md)
 - 常见问题与排错
 
 快速开始（单臂 SpaceMouse）：
@@ -170,7 +170,7 @@ policy runtime 调试/试验模块如需单独开发，可执行 `pip install -r
 cd rokae_python_wrapper
 ./scripts/rokae_run.sh --config config/server/single.example.yaml
 cd ..
-./scripts/record/rokae_record.sh --config_path=config/record/single_rokae_spacemouse_example.yaml
+./scripts/record/rokae_record.sh --config_path=config/record/single_spacemouse_example.yaml
 ```
 
 ## 相关文档

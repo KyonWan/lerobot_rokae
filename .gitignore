@@ -183,4 +183,6 @@ outputimage
 
 # 本机专用录制 YAML
 config/record/*.yaml
+!config/record/*_example.yaml
 rokae_python_wrapper/config/server/*.yaml
+!rokae_python_wrapper/config/server/*.example.yaml
