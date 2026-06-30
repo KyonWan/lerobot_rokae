@@ -3,6 +3,7 @@ name = "rokae_policy_runtime"
 version = "0.1.0"
 description = "Policy runtime bridges for Rokae robot (OpenPI and future adapters)"
 requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
 dependencies = [
     "lerobot",
     "lerobot_robot_rokae",

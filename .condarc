@@ -1,0 +1,7 @@
+channels:
+  - conda-forge
+channel_priority: strict
+default_channels: []
+allowlist_channels:
+  - conda-forge
+  - https://conda.anaconda.org/conda-forge

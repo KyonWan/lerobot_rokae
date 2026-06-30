@@ -47,17 +47,19 @@ cd ..
 ### 1. 创建 Conda 环境
 
 ```bash
-conda create -y -n lerobot python=3.10
+conda create -y -n lerobot -c conda-forge --override-channels --strict-channel-priority python=3.10 ffmpeg pip
 conda activate lerobot
 ```
 
-### 2. 安装 ffmpeg（用于视频处理）
+上面的 `--override-channels` 会忽略用户全局 `.condarc` 里的 `defaults` / Anaconda 镜像源。
+
+[`environment.yml`](environment.yml) 也只声明 `conda-forge`，并通过 `nodefaults` 避免追加默认源，可用于 CI 或已经清理过全局 conda 源的机器。仓库还提供了 [`.condarc`](.condarc)，其中 `allowlist_channels` 只允许 `conda-forge`：
 
 ```bash
-conda install ffmpeg -c conda-forge
+conda env create -f environment.yml
 ```
 
-### 3. 一键安装（推荐）
+### 2. 一键安装（推荐）
 
 在仓库根目录 `lerobot_rokae/` 执行（需 pip >= 21.2，建议先 `pip install -U pip`）：
 
@@ -84,7 +86,7 @@ pip install --no-build-isolation -e ".[policy]" \
   --trusted-host pypi.tuna.tsinghua.edu.cn
 ```
 
-### 4. 系统依赖（SpaceMouse / 视频）
+### 3. 系统依赖（SpaceMouse / 视频）
 
 使用 SpaceMouse（`pyspacemouse`）时，Linux 上需要系统级 **HIDAPI**（pip 无法提供），请先安装：
 
@@ -95,7 +97,7 @@ sudo apt-get install -y libhidapi-dev libhidapi-hidraw0
 
 更多录制与遥操作说明见 [RECORDING.md](RECORDING.md)。
 
-### 5. 分步安装 / 仅 wrapper（高级，可跳过）
+### 4. 分步安装 / 仅 wrapper（高级，可跳过）
 
 > 仅在**不使用第 3 步一键安装**时执行本节。  
 > 如果你已经执行了第 3 步，请直接跳过，避免重复安装。
@@ -111,7 +113,7 @@ pip install -e ./lerobot_teleoperator_rokae
 
 `rokae_python_wrapper` 亦可单独 clone 后在项目根 `pip install -e .`（见 [rokae_python_wrapper/README.md](rokae_python_wrapper/README.md)）。
 
-### 6. 安装 [XRoboToolkit](https://github.com/XR-Robotics) （仅当使用 Pico 遥操作时需要）
+### 5. 安装 [XRoboToolkit](https://github.com/XR-Robotics) （仅当使用 Pico 遥操作时需要）
 
 
 #### 安装 XRoboToolkit PC 服务
@@ -172,3 +174,11 @@ cd ..
 - [录制说明](RECORDING.md) - 单臂/双臂、SpaceMouse/Pico 录制流程
 - [Rokae Python Wrapper 文档](rokae_python_wrapper/README.md)
 - [LeRobot 官方文档](https://github.com/huggingface/lerobot)
+
+## License
+
+本仓库中由 ROKAE Robotics 开发的代码以 [Apache License 2.0](LICENSE) 授权。使用、修改和分发时请保留版权、许可证和 [NOTICE](NOTICE) 中的署名信息。
+
+第三方组件或单独授权组件仍遵循各自许可证或供应商协议，包括 LeRobot、Rokae SDK 原生库、XRoboToolkit、Python 依赖、模型权重、数据集和系统包。
+
+本项目可能调用用户环境中的 FFmpeg 以及 H.264/AVC、HEVC、AV1 等视频编码器。ROKAE Robotics 不随本仓库分发这些编码器二进制，也不代使用者取得相关 codec 专利或第三方许可证；商业分发、产品集成、公开发布视频数据或再分发运行环境时，请使用者自行确认 FFmpeg 许可证和 codec 专利合规。
