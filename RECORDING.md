@@ -116,5 +116,5 @@ lerobot-dataset-viz --repo-id <repo_id> --root <dataset_root> --episode-index 0
 
 - **双臂无响应**：确认左右臂 server 均已启动，且端口与录制配置一致（默认 5555/5556）。
 - **SpaceMouse 设备混淆**：尝试交换 `left_device_index` 与 `right_device_index`。
-- **Pico 无动作**：检查 XRoboToolkit PC 服务状态、头显与控制机网络是否同网段，并确认已勾选 `send`。
+- **Pico 无动作**：优先检查 XRoboToolkit PC 服务状态；USB-C 有线连接时确认 `adb reverse tcp:63901 tcp:63901` 已生效，Wi-Fi 连接时确认头显与控制机在同一网段，并确认已勾选 `send`。
 - **控制不稳定**：优先检查 `reset_joint_pos`、工具参数、控制模式是否与现场配置一致（`callback_mode` 已按 `control_mode` 自动推导）。
