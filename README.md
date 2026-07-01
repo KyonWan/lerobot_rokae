@@ -124,6 +124,7 @@ policy runtime 调试/试验模块如需单独开发，可执行 `pip install -r
 
 ### 5. 安装 [XRoboToolkit](https://github.com/XR-Robotics) （仅当使用 Pico 遥操作时需要）
 
+XRoboToolkit 组件不随本仓库分发；请从 XR-Robotics 官方仓库或 release 获取，并遵循其对应许可证和第三方声明。
 
 #### 安装 XRoboToolkit PC 服务
 - 下载适用于 [Ubuntu 22.04](https://github.com/XR-Robotics/XRoboToolkit-PC-Service/releases/download/v1.0.0/XRoboToolkit_PC_Service_1.0.0_ubuntu_22.04_amd64.deb)/ [Ubuntu 24.04](https://github.com/XR-Robotics/XRoboToolkit-PC-Service/releases/download/v1.0.0/XRoboToolkit_PC_Service_1.0.0_ubuntu_24.04_amd64.deb) 的 .deb 安装包，或从[源码仓库](https://github.com/XR-Robotics/XRoboToolkit-PC-Service)自行构建。
@@ -152,12 +153,18 @@ policy runtime 调试/试验模块如需单独开发，可执行 `pip install -r
   ```
 
 #### 使用Pico采集数据前的必要操作
-- 确保控制机器人的电脑和Pico头显处于同一网络下。
 - 在控制机器人的电脑端，双击应用XRoboToolkit-PC-Service的图标或通过以下命令打开服务：
   ```
   /opt/apps/roboticsservice/runService.sh
   ```
-- 在Pico头显上打开应用XRoboToolkit，在应用界面的Enter处输入控制机器人的电脑的IP，勾选以下方框：head，controller和send。
+- 推荐使用 USB-C 有线连接，数据流更稳定：
+  ```bash
+  adb devices
+  adb reverse tcp:63901 tcp:63901
+  adb reverse --list
+  ```
+  在 Pico 头显上打开 XRoboToolkit，在应用界面的 Enter 处输入 `127.0.0.1`，勾选 `head`、`controller` 和 `send`。
+- 也可以使用 Wi-Fi：确保控制机器人的电脑和 Pico 头显处于同一网络下，在 XRoboToolkit 中输入控制机器人的电脑 IP，并勾选 `head`、`controller` 和 `send`。
 
 
 ## 数据采集

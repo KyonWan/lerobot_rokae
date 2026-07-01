@@ -8,10 +8,13 @@ upstream LeRobot carry a "Modified by ROKAE Robotics in 2026." notice.
 
 This repository also includes or depends on third-party or separately
 licensed components. Components including LeRobot, Rokae SDK native binaries,
-XRoboToolkit components, Python packages, model weights, datasets, and system
-packages are not relicensed by this NOTICE file. See the corresponding
-upstream license files, package metadata, and vendor agreements for those
-components.
+Python packages, model weights, datasets, and system packages are not
+relicensed by this NOTICE file. See the corresponding upstream license files,
+package metadata, and vendor agreements for those components.
+
+XRoboToolkit components are external dependencies used for Pico teleoperation.
+They are not redistributed in this repository. Users should obtain them from
+XR-Robotics and comply with their applicable licenses and third-party notices.
 
 This repository may call FFmpeg and video codecs such as H.264/AVC, HEVC,
 and AV1 from the user's runtime environment. ROKAE Robotics does not
