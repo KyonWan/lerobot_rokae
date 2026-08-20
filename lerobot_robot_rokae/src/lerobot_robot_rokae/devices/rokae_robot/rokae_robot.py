@@ -63,7 +63,30 @@ class RokaeRobot(Robot):
         robot_info = self.client.get_robot_info()
         self.joint_num = int(robot_info["joint_num"])
         self.robot_info = robot_info
-        self.robot_type = str(robot_info.get("type"))
+        # 数据集 metadata / 续录校验使用基类 robot_type（= name，如 rokae_robot）。
+        # 具体机型保留在 hardware_type，供 IK/URDF 等逻辑使用；勿覆盖 robot_type。
+        self.hardware_type = str(robot_info.get("type") or "")
+
+        joint_limit_info = self.client.get_joint_position_limits()
+        self.joint_coupling_limit = (
+            None if not joint_limit_info else joint_limit_info.get("coupling")
+        )
+        self.joint_position_lower_limits = (
+            None
+            if not joint_limit_info
+            else np.asarray(
+                joint_limit_info.get("ik_lower", joint_limit_info["safe_lower"]),
+                dtype=np.float64,
+            )
+        )
+        self.joint_position_upper_limits = (
+            None
+            if not joint_limit_info
+            else np.asarray(
+                joint_limit_info.get("ik_upper", joint_limit_info["safe_upper"]),
+                dtype=np.float64,
+            )
+        )
         self.tool_info = tool_info
         self.tool_mass = float(tool_info.get("mass"))
         self.tool_center_of_mass = np.array(tool_info.get("center_of_mass"), dtype=np.float64)

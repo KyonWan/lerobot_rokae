@@ -173,7 +173,7 @@ XRoboToolkit 组件不随本仓库分发；请从 XR-Robotics 官方仓库或 re
 
 - 单臂 / 双臂启动与录制
 - SpaceMouse / Pico 录制示例
-- `config/record/*.yaml` 用法；示例按 teleop 类型拆分，见 [`config/record/README.md`](config/record/README.md)
+- `config/record/*.yaml` 用法；示例按 teleop 类型拆分，见 [`config/record/README.md`](config/record/README.md)（含 **CPU 绑核** 说明）
 - 常见问题与排错
 
 快速开始（单臂 SpaceMouse）：

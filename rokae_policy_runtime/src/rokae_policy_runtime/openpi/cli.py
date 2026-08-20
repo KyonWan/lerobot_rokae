@@ -14,7 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--bridge",
         choices=["async_bridge", "bridge"],
-        default="async_bridge",
+        default="bridge",
         help="选择桥接实现: async_bridge（异步推理/RTC）或 bridge（同步推理）",
     )
     parser.add_argument(
@@ -77,6 +77,7 @@ def main() -> None:
     else:
         from .bridge import OpenPIPolicyBridge
 
+        
     bridge_kwargs = {
         "policy_server_host": args.policy_host,
         "policy_server_port": args.policy_port,

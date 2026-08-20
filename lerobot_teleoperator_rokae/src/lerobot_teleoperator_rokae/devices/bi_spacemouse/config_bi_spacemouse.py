@@ -11,5 +11,5 @@ class BiSpacemouseConfig(TeleoperatorConfig):
     left_device_index: Optional[int] = 0
     right_device_index: Optional[int] = 1
     # 上层参考笛卡尔速度上限（m/s 和 rad/s），会传入 build_arm_pipeline
-    trans_max_vel: float = 0.15
-    rot_max_vel: float = 0.15
+    trans_max_vel: float = 0.2
+    rot_max_vel: float = 0.2

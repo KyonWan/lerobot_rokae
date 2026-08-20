@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+
 from lerobot.configs.types import PipelineFeatureType, PolicyFeature
 from lerobot.processor.core import TransitionKey
 from lerobot.processor.pipeline import ProcessorStep, ProcessorStepRegistry
@@ -28,6 +31,25 @@ from .config import (
 from .pipeline_base import ArmPipeline
 
 
+def _cart_velocity_between_poses(
+    current_pose: np.ndarray,
+    previous_pose: np.ndarray,
+    period: float,
+) -> np.ndarray:
+    """Compute translational velocity and SO(3) angular velocity between pose6 values."""
+    if period <= 0:
+        raise ValueError(f"control_period must be positive, got {period}")
+
+    current_pose = np.asarray(current_pose, dtype=np.float64).reshape(6)
+    previous_pose = np.asarray(previous_pose, dtype=np.float64).reshape(6)
+    linear_vel = (current_pose[:3] - previous_pose[:3]) / period
+
+    R_prev = R.from_euler("xyz", previous_pose[3:], degrees=False)
+    R_curr = R.from_euler("xyz", current_pose[3:], degrees=False)
+    angular_vel = (R_prev.inv() * R_curr).as_rotvec() / period
+    return np.concatenate([linear_vel, angular_vel])
+
+
 @ProcessorStepRegistry.register("solve_arm_processor")
 @dataclass
 class SolveArmProcessor(ProcessorStep):
@@ -48,7 +70,11 @@ class SolveArmProcessor(ProcessorStep):
 
         prev_flan = rt.cart_pos_flan_in_base
         cart_vel = (
-            (cart_pos_flan_in_base - prev_flan) / pipeline.control_period
+            _cart_velocity_between_poses(
+                cart_pos_flan_in_base,
+                prev_flan,
+                pipeline.control_period,
+            )
             if prev_flan is not None
             else None
         )
@@ -73,7 +99,15 @@ class SolveArmProcessor(ProcessorStep):
         write_arm_joints(action, cfg.key_prefix, q_out, cfg.joint_num)
 
         if ik_ok:
-            rt.cart_pos_flan_in_base = cart_pos_flan_in_base.copy()
+            get_solved_pose = getattr(rt.ik_solver, "get_solved_pose", None)
+            if callable(get_solved_pose):
+                # 以 IK 实际达到的法兰位姿作为下一帧积分起点，避免在关节限位处
+                # 持续积累不可达的笛卡尔目标（反向操作可立即离开限位）。
+                solved_pose = np.asarray(get_solved_pose(), dtype=np.float64).reshape(6)
+                rt.cart_pos_flan_in_base = solved_pose
+                write_action_cart_pos(action, cfg.key_prefix, solved_pose)
+            else:
+                rt.cart_pos_flan_in_base = cart_pos_flan_in_base.copy()
         elif rt.cart_pos_flan_in_base is not None:
             write_action_cart_pos(
                 action, cfg.key_prefix, rt.cart_pos_flan_in_base

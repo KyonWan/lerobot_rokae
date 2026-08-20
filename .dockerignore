@@ -1,0 +1,27 @@
+# Docker 构建上下文是仓库根目录（docker build -f docker/Dockerfile .）
+# 因此本文件必须放在仓库根，Docker 才会读取。规则服务于 docker/Dockerfile。
+#
+# 加快构建上下文；需要 COPY 进镜像做 -e 安装的包不要忽略
+.git
+**/__pycache__
+**/*.pyc
+**/.venv
+
+# 只排除仓库根目录的录制数据，勿用 **/datasets（会误伤 lerobot/src/lerobot/datasets 源码包）
+/datasets
+/dataset
+**/outputs
+**/wandb
+**/.cache
+.docker_build
+
+# 不参与默认安装的试验模块
+lerobot_policy_rokae
+rokae_policy_runtime
+
+# 文档（保留各包安装所需的 README）
+*.md
+!lerobot/README.md
+!rokae_python_wrapper/README.md
+docs
+agent-transcripts

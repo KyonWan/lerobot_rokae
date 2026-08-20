@@ -47,7 +47,7 @@ from lerobot_teleoperator_rokae.devices.pico.pipeline import (
 
 POSTURE_RESET_SETTLE_STEPS = 20
 POSTURE_RESET_SETTLE_CART_SPEED = 0.004
-POSTURE_RESET_SETTLE_COST_SCALE = 0.01
+POSTURE_RESET_SETTLE_COST_SCALE = 0.001
 
 
 def _callback_mode_from_control_mode(control_mode) -> str:
@@ -87,31 +87,6 @@ def _warn_if_rokae_vel_limits_exceeded(
         )
 
 
-def _make_external_lower_half_crop_params(robot: Robot) -> dict[str, tuple[int, int, int, int]]:
-    """
-    Build crop params for the head camera (`external`) to keep only the lower half.
-    Returns empty dict when `external` camera is unavailable.
-    """
-    cameras_cfg = getattr(getattr(robot, "cfg", None), "cameras", {}) or {}
-    external_cfg = cameras_cfg.get("external")
-    if external_cfg is None:
-        return {}
-
-    height = getattr(external_cfg, "height", None)
-    width = getattr(external_cfg, "width", None)
-    if height is None or width is None:
-        # Fallback to feature shape when camera config doesn't expose width/height.
-        obs_features = getattr(robot, "observation_features", {}) or {}
-        shape = obs_features.get("external")
-        if not (isinstance(shape, tuple) and len(shape) == 3):
-            return {}
-        height, width, _ = shape
-
-    top = int(height) // 2
-    left = 0
-    crop_h = int(height) - top
-    crop_w = int(width)
-    return {"external": (top, left, crop_h, crop_w)}
 
 
 def _make_external_resize_params() -> dict[str, tuple[int, int]]:
@@ -180,6 +155,9 @@ def _make_bimanual_pipelines(
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=left_robot_ip,
+                    joint_position_lower_limits=left_arm.joint_position_lower_limits,
+                    joint_position_upper_limits=left_arm.joint_position_upper_limits,
+                    joint_coupling_limit=left_arm.joint_coupling_limit,
                 ),
                 arm_config(
                     "right_",
@@ -191,6 +169,9 @@ def _make_bimanual_pipelines(
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=right_robot_ip,
+                    joint_position_lower_limits=right_arm.joint_position_lower_limits,
+                    joint_position_upper_limits=right_arm.joint_position_upper_limits,
+                    joint_coupling_limit=right_arm.joint_coupling_limit,
                 ),
             ],
             control_period=1.0 / cfg.dataset.fps,
@@ -214,6 +195,9 @@ def _make_bimanual_pipelines(
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=left_robot_ip,
+                    joint_position_lower_limits=left_arm.joint_position_lower_limits,
+                    joint_position_upper_limits=left_arm.joint_position_upper_limits,
+                    joint_coupling_limit=left_arm.joint_coupling_limit,
                 ),
                 arm_config(
                     "right_",
@@ -225,6 +209,9 @@ def _make_bimanual_pipelines(
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=right_robot_ip,
+                    joint_position_lower_limits=right_arm.joint_position_lower_limits,
+                    joint_position_upper_limits=right_arm.joint_position_upper_limits,
+                    joint_coupling_limit=right_arm.joint_coupling_limit,
                 ),
             ],
             control_period=1.0 / cfg.dataset.fps,
@@ -313,6 +300,9 @@ def _make_single_arm_pipelines(
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=robot_ip,
+                    joint_position_lower_limits=robot.joint_position_lower_limits,
+                    joint_position_upper_limits=robot.joint_position_upper_limits,
+                    joint_coupling_limit=robot.joint_coupling_limit,
                 )
             ],
             control_period=1.0 / cfg.dataset.fps,
@@ -334,6 +324,9 @@ def _make_single_arm_pipelines(
                     trans_max_vel,
                     rot_max_vel,
                     robot_ip=robot_ip,
+                    joint_position_lower_limits=robot.joint_position_lower_limits,
+                    joint_position_upper_limits=robot.joint_position_upper_limits,
+                    joint_coupling_limit=robot.joint_coupling_limit,
                 )
             ],
             control_period=1.0 / cfg.dataset.fps,
@@ -388,14 +381,8 @@ def _make_single_arm_pipelines(
     robot_observation_processor_steps = [
         CartPosBaseToRefObservationProcessor(arms=cart_arms),
     ]
-    crop_params = _make_external_lower_half_crop_params(robot)
-    if crop_params:
-        robot_observation_processor_steps.append(
-            RokaeCameraCropObservationProcessor(
-                camera_crop_params=crop_params,
-                camera_resize_params=_make_external_resize_params(),
-            )
-        )
+
+
     robot_observation_processor = RobotProcessorPipeline[RobotObservation, RobotObservation](
         steps=robot_observation_processor_steps,
         to_transition=observation_to_transition,
@@ -587,3 +574,51 @@ def reset_robot_and_grippers(
     if teleop is not None and getattr(teleop, "name", None) in ("spacemouse", "bi_spacemouse", "pico_single", "pico"):
         reset_gripper_states(robot, teleop_action_processor)
         settle_rokae_posture_before_record(robot, teleop_action_processor)
+def _reset_joint_pos_from_client(client) -> list[float] | None:
+    """Read configured reset_joint_pos (degrees, same as server yaml) via get_robot_info."""
+    if not hasattr(client, "get_robot_info"):
+        return None
+    info = client.get_robot_info()
+    reset_joint_pos = info.get("reset_joint_pos")
+    if reset_joint_pos is None:
+        return None
+    return [float(x) for x in reset_joint_pos]
+
+
+def maybe_record_reset_joint_pos(dataset, robot: Robot) -> None:
+    """
+    Write server-config ``reset_joint_pos`` (degrees) into meta/info.json once.
+
+    Skips if already present (e.g. resume). Matches fields from configs like
+    ``rokae_python_wrapper/config/server/single.yaml``.
+    """
+    from lerobot.datasets.utils import write_info
+
+    info = dataset.meta.info
+    if "reset_joint_pos" in info:
+        return
+
+    left_arm = getattr(robot, "left_arm", None)
+    right_arm = getattr(robot, "right_arm", None)
+    if left_arm is not None and right_arm is not None:
+        left = _reset_joint_pos_from_client(getattr(left_arm, "client", None))
+        right = _reset_joint_pos_from_client(getattr(right_arm, "client", None))
+        if left is None and right is None:
+            return
+        payload: dict | list[float] = {}
+        if left is not None:
+            payload["left"] = left
+        if right is not None:
+            payload["right"] = right
+    elif hasattr(robot, "client"):
+        payload = _reset_joint_pos_from_client(robot.client)
+        if payload is None:
+            return
+    else:
+        return
+
+    info["reset_joint_pos"] = payload
+    write_info(info, dataset.meta.root)
+    logging.getLogger(__name__).info(
+        "Wrote reset_joint_pos into meta/info.json: %s", payload
+    )

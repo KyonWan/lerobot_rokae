@@ -16,7 +16,6 @@
 #   ./scripts/record/rokae_record.sh --config_path=...
 #
 # 恢复录制：在参数里加 --resume=true，并把 --dataset.root 指到已有数据集目录等（与 LeRobot 文档一致）。
-export RECORD_TASKSET_CPUS=4
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/../.." || exit 1

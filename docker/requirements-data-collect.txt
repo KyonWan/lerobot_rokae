@@ -1,0 +1,51 @@
+# 数据采集最小依赖（遥操作 + 写数据集 + rerun；不含 policy 训练 / CUDA）
+# 本地包（lerobot / rokae_*）用 `uv pip install --no-deps -e` 单独安装。
+
+# HuggingFace / 数据集
+datasets>=4.0.0,<4.2.0
+huggingface-hub[hf-transfer,cli]>=0.34.2,<0.36.0
+pyarrow
+pandas
+Pillow
+
+# 视频 / 图像
+opencv-python-headless>=4.9.0,<4.13.0
+av>=15.0.0,<16.0.0
+imageio[ffmpeg]>=2.34.0,<3.0.0
+
+# 运行时核心（lerobot_record 导入链会用到）
+draccus==0.10.0
+einops>=0.8.0,<0.9.0
+numpy
+scipy
+packaging>=24.2,<26.0
+jsonlines>=4.0.0,<5.0.0
+deepdiff>=7.0.1,<9.0.0
+termcolor>=2.4.0,<4.0.0
+pynput>=1.7.7,<1.9.0
+pyserial>=3.5,<4.0
+safetensors
+typing_extensions
+gymnasium>=1.1.1,<2.0.0
+accelerate>=1.10.0,<2.0.0
+
+# 可视化
+rerun-sdk>=0.24.0,<0.27.0
+
+# 相机 / 遥操作硬件
+pyrealsense2>=2.55.1.6486,<2.57.0 ; sys_platform != 'darwin'
+pyspacemouse
+
+# Rokae IK（daqp 即可；勿用 open_source_solvers，会拉 jax）
+pin-pink
+pin
+qpsolvers[daqp]
+
+# Rokae wrapper
+pyzmq
+msgpack
+pyyaml>=6.0.1
+
+# Pico teleop（xrobotoolkit_teleop --no-deps 的传递依赖）
+meshcat
+ur_rtde

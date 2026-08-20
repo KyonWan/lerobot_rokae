@@ -70,6 +70,29 @@ def build_parser() -> argparse.ArgumentParser:
         "若感觉轨迹重复或闭环差，可改为 1～5 以更高频重算",
     )
     parser.add_argument(
+        "--rtc_delay",
+        type=int,
+        default=None,
+        help="手动指定 OpenPI RTC delay 步数；不指定时使用策略服务器 metadata 的 max_delay",
+    )
+    parser.add_argument(
+        "--disable_dynamic_delay",
+        action="store_true",
+        help="关闭动态延迟估计，始终使用 --rtc_delay 或服务器 metadata 的 max_delay",
+    )
+    parser.add_argument(
+        "--delay_window",
+        type=int,
+        default=8,
+        help="动态 delay 估计使用的最近推理耗时窗口大小",
+    )
+    parser.add_argument(
+        "--delay_safety_steps",
+        type=int,
+        default=1,
+        help="动态 delay 估计额外增加的安全步数",
+    )
+    parser.add_argument(
         "--temporal_ensemble_coefficient",
         type=float,
         default=None,
@@ -123,6 +146,10 @@ def main() -> None:
         cam_right_wrist_serial=args.cam_right_wrist_serial,
         action_chunk_size=args.action_chunk_size,
         rate_of_inference=args.rate_of_inference,
+        rtc_delay=args.rtc_delay,
+        dynamic_delay=not args.disable_dynamic_delay,
+        delay_window=args.delay_window,
+        delay_safety_steps=args.delay_safety_steps,
         temporal_ensemble_coefficient=args.temporal_ensemble_coefficient,
         save_rgb_dir=args.save_rgb_dir,
         debug_model_io=args.debug_model_io,

@@ -100,6 +100,9 @@ def init_kinematics_backend(pipeline: ArmPipeline[RT]) -> None:
             robot_type=cfg.robot_type,
             robot_ip=cfg.robot_ip,
             trans_max_vel=cfg.trans_max_vel,
+            joint_position_lower_limits=cfg.joint_position_lower_limits,
+            joint_position_upper_limits=cfg.joint_position_upper_limits,
+            joint_coupling_limit=cfg.joint_coupling_limit,
         )
         if isinstance(rt.ik_solver, Pink7AxisIkSolver):
             rt.ik_solver.request_reset()

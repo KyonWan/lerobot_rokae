@@ -23,7 +23,7 @@ class PicoSingleConfig(TeleoperatorConfig):
     close_position: float = 0.0
     open_position: float = 1.0
     xyz_scale_factor: float = 1           # 位置增量缩放因子比例
-    rot_scale_factor: float = 0.25           # 姿态增量缩放因子比例
+    rot_scale_factor: float = 0.5         # 姿态增量缩放因子比例
     R_headset_world: list[float] = field(default_factory=lambda: [90.0, 0.0, 90.0]) # pico 头显到世界坐标系的旋转矩阵，xyz Euler angles in degrees
     trans_max_vel: float = 0.1
     rot_max_vel: float = 0.2

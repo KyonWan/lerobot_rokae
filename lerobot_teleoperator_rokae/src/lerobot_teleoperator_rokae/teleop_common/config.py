@@ -34,6 +34,9 @@ class ArmConfig:
     )
     trans_max_vel: float = 0.1
     rot_max_vel: float = 0.2
+    joint_position_lower_limits: np.ndarray | None = None
+    joint_position_upper_limits: np.ndarray | None = None
+    joint_coupling_limit: dict | None = None
 
 
 @dataclass
@@ -109,6 +112,9 @@ def arm_config(
     *,
     robot_ip: str = "",
     initial_gripper_state: int = 1,
+    joint_position_lower_limits: Any = None,
+    joint_position_upper_limits: Any = None,
+    joint_coupling_limit: dict | None = None,
 ) -> ArmConfig:
     return ArmConfig(
         key_prefix=key_prefix,
@@ -121,6 +127,19 @@ def arm_config(
         base_frame_in_world=_as_pose6(base_frame_in_world),
         trans_max_vel=float(trans_max_vel),
         rot_max_vel=float(rot_max_vel),
+        joint_position_lower_limits=(
+            None
+            if joint_position_lower_limits is None
+            else np.asarray(joint_position_lower_limits, dtype=np.float64).reshape(joint_num)
+        ),
+        joint_position_upper_limits=(
+            None
+            if joint_position_upper_limits is None
+            else np.asarray(joint_position_upper_limits, dtype=np.float64).reshape(joint_num)
+        ),
+        joint_coupling_limit=(
+            None if joint_coupling_limit is None else dict(joint_coupling_limit)
+        ),
     )
 
 
